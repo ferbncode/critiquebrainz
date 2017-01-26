@@ -32,7 +32,7 @@
         <tbody id="results">{% include 'review/revision_results.html' %}</tbody>
       </table>
       {% if count > limit %}
-        <button id="more-button" type="button" class="btn btn-primary" onclick="load_more();" >{{ _('Load older revisions') }}</button>
+        <button id="more-button" type="button" class="btn btn-primary">{{ _('Load older revisions') }}</button>
         <span id="loading-message" class="text-muted" style="display:none;">{{ _('Loading older revisions...') }}</span>
       {% endif %}
     </form>
@@ -59,7 +59,7 @@
 
       {% if count > limit %}
         var current_page = 0;
-        function load_more() {
+        $("#more-button").click(function () {
           var more_button = $("#more-button");
           var loading_message = $("#loading-message");
           more_button.hide();
@@ -76,7 +76,7 @@
               .fail(function () {
                 alert({{ _('Failed to load older revisions!') | tojson }});
               });
-        }
+        });
       {% endif %}
     });
   </script>

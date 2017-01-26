@@ -12,7 +12,7 @@ from critiquebrainz.data.model.review import Review, ENTITY_TYPES
 from critiquebrainz.data.model.revision import Revision
 from critiquebrainz.data.model.spam_report import SpamReport
 from critiquebrainz.data.model.vote import Vote
-from critiquebrainz.db import vote as db_vote, exceptions as db_exceptions
+from critiquebrainz.db import vote as db_vote, exceptions as db_exceptions, revision as db_revision
 from critiquebrainz.frontend import flash
 from critiquebrainz.frontend.external import mbspotify, musicbrainz, soundcloud
 from critiquebrainz.frontend.forms.log import AdminActionForm
@@ -68,9 +68,7 @@ def entity(id, rev=None):
     if review.entity_type == 'release_group':
         spotify_mappings = mbspotify.mappings(review.entity_id)
         soundcloud_url = soundcloud.get_url(review.entity_id)
-
-    revisions = Revision.query.filter_by(review=review).order_by(desc(Revision.timestamp))
-    count = revisions.count()
+    revisions, count = db_revision.get(str(id), order_desc=True)
     if not rev:
         rev = count
     if rev < count:
@@ -78,7 +76,7 @@ def entity(id, rev=None):
     elif rev > count:
         raise NotFound(gettext("The revision you are looking for does not exist."))
 
-    revision = revisions.offset(count-rev).first()
+    revision = revisions[count-rev]
     if not review.is_draft and current_user.is_authenticated:  # if user is logged in, get their vote for this review
         try:
             vote = db_vote.get(user_id=current_user.id, revision_id=revision.id)
@@ -86,7 +84,7 @@ def entity(id, rev=None):
             vote = None
     else:  # otherwise set vote to None, its value will not be used
         vote = None
-    review.text_html = markdown(revision.text, safe_mode="escape")
+    review.text_html = markdown(revision['text'], safe_mode="escape")
     return render_template('review/entity/%s.html' % review.entity_type, review=review, spotify_mappings=spotify_mappings, soundcloud_url=soundcloud_url, vote=vote)
 
 
@@ -98,20 +96,16 @@ def compare(id):
         raise NotFound(gettext("Can't find a review with the specified ID."))
     if review.is_hidden and not current_user.is_admin():
         raise NotFound(gettext("Review has been hidden."))
-
-    revisions = Revision.query.filter_by(review=review).order_by(desc(Revision.timestamp))
-    count = revisions.count()
+    revisions, count = db_revision.get(str(id), order_desc=True)
     old, new = int(request.args.get('old') or count - 1), int(request.args.get('new') or count)
     if old > count or new > count:
         raise NotFound(gettext("The revision(s) you are looking for does not exist."))
     if old > new:
         return redirect(url_for('.compare', id=id, old=new, new=old))
-
-    left = revisions.offset(count-old).first()
-    right = revisions.offset(count-new).first()
-    left.number, right.number = old, new
-    left.text, right.text = side_by_side_diff(left.text, right.text)
-
+    left = dict(revisions[count-old])
+    right = dict(revisions[count-new])
+    left['number'], right['number'] = old, new
+    left['text'], right['text'] = side_by_side_diff(left['text'], right['text'])
     return render_template('review/compare.html', review=review, left=left, right=right)
 
 
@@ -126,12 +120,11 @@ def revisions(id):
     if review.is_hidden and not current_user.is_admin():
         raise NotFound(gettext("Review has been hidden."))
 
-    revisions = Revision.query.filter_by(review=review)
-    count = revisions.count()
-    revisions = revisions.order_by(desc(Revision.timestamp)).limit(RESULTS_LIMIT)
+    revisions, count = db_revision.get(str(id), order_desc=True)
+    votes = db_revision.get_votes(str(id))
+    revisions = revisions[: RESULTS_LIMIT]
     results = list(zip(reversed(range(count-RESULTS_LIMIT, count)), revisions))
-
-    return render_template('review/revisions.html', review=review, results=results, count=count, limit=RESULTS_LIMIT)
+    return render_template('review/revisions.html', review=review, results=results, count=count, limit=RESULTS_LIMIT, votes=votes)
 
 
 @review_bp.route('/<uuid:id>/revisions/more')
@@ -148,12 +141,12 @@ def revisions_more(id):
     page = int(request.args.get('page', default=0))
     offset = page * RESULTS_LIMIT
 
-    revisions = Revision.query.filter_by(review=review)
-    count = revisions.count()
-    revisions = revisions.order_by(desc(Revision.timestamp)).offset(offset).limit(RESULTS_LIMIT)
+    revisions, count = db_revision.get(str(id), order_desc=True)
+    revisions = revisions[offset:offset+RESULTS_LIMIT]
+    votes = db_revision.get_votes(str(id))
     results = list(zip(reversed(range(count-offset-RESULTS_LIMIT, count-offset)), revisions))
 
-    template = render_template('review/revision_results.html', review=review, results=results)
+    template = render_template('review/revision_results.html', review=review, results=results, count=count, votes=votes)
     return jsonify(results=template, more=(count-offset-RESULTS_LIMIT) > 0)
 
 
