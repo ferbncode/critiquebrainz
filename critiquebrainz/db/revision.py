@@ -1,7 +1,6 @@
 from critiquebrainz import db
 from critiquebrainz.db import exceptions as db_exceptions
 import sqlalchemy
-from datetime import datetime
 from collections import OrderedDict
 
 # function names need a lot to change
