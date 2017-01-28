@@ -3,8 +3,10 @@ from critiquebrainz.data import db
 from critiquebrainz.data.model.revision import Revision
 from critiquebrainz.data.model.review import Review
 from critiquebrainz.data.model.license import License
+from critiquebrainz.data.model.vote import Vote
 from critiquebrainz.db import exceptions
 from critiquebrainz.db import revision
+from critiquebrainz.db import vote
 from datetime import datetime
 from uuid import UUID
 
@@ -14,15 +16,15 @@ class RevisionTestCase(DataTestCase):
     def setUp(self):
         super(RevisionTestCase, self).setUp()
 
-        self.user = User(dispaly_name=u'Tester')
-        db.session.add(self.user)
-        db.session.commit()
+        author = User.get_or_create('Author', musicbrainz_id='0')
+        self.user_1 = User.get_or_create('Tester #1', musicbrainz_id='1')
+        self.user_2 = User.get_or_create('Tester #2', musicbrainz_id='2')
 
         self.license = Liscense(id=u'TEST', full_name=u"Test License")
         db.session.add(self.license)
         db.session.commit()
 
-        self.review = Review.create(user=self.user,
+        self.review = Review.create(user=author,
                                     release_group='e7aad618-fa86-3983-9e77-405e21796eca',
                                     text=u"Testing!",
                                     is_draft=False,
@@ -35,10 +37,29 @@ class RevisionTestCase(DataTestCase):
             first_revision = revision.get(review_id)[0]
             self.assertEqual(first_revision.text, "Testing!")
             self.assertEqual(first_revision.review_id, self.review.id)
-            self.assertEqual(type(first_revision.timestamp, datetime))
-            self.assertEqual(type(first_revision.id, int))
+            self.assertEqual(type(first_revision.timestamp), datetime)
+            self.assertEqual(type(first_revision.id), int)
+            self.assertEqual(type(first_revision.review_id), UUID)
 
+            self.review.update(text="Testing Again!")
+            # order by desc ensures that the second revision refers to the latest revision
+            second_revision = revision.get(review_id, order_desc=True)[0]
+            self.assertEqual(second_revision.text, "Testing Again!")
+            self.assertEqual(second_revision.review_id, self.review.id)
+            self.assertEqual(type(second_revision.timestamp), datetime)
+            self.assertEqual(type(second_revision.id), int)
 
+        def test_get_votes(self):
+            """Test to get the number of votes on revisions of a review"""
 
-
-
+            review_id = self.review.id
+            first_revision = revision.get(review_id)[0]
+            vote.submit(self.user_1.id, first_revision.id, True)
+            vote.submit(self.user_2.id, first_revision.id, False)
+            votes = revision.get_votes(review_id, order_desc=True)
+            first_revision = revision.get(reivew_id)[0]
+            votes_first_revision = votes[first_revision.id]
+            assertDictEqual(votes_first_revision, {
+                "positive":2,
+                "negative":1
+            })

@@ -68,7 +68,7 @@ def entity(id, rev=None):
     if review.entity_type == 'release_group':
         spotify_mappings = mbspotify.mappings(review.entity_id)
         soundcloud_url = soundcloud.get_url(review.entity_id)
-    revisions, count = db_revision.get(str(id), order_desc=True)
+    revisions, count = db_revision.get(id, order_desc=True)
     if not rev:
         rev = count
     if rev < count:
@@ -96,7 +96,7 @@ def compare(id):
         raise NotFound(gettext("Can't find a review with the specified ID."))
     if review.is_hidden and not current_user.is_admin():
         raise NotFound(gettext("Review has been hidden."))
-    revisions, count = db_revision.get(str(id), order_desc=True)
+    revisions, count = db_revision.get(id, order_desc=True)
     old, new = int(request.args.get('old') or count - 1), int(request.args.get('new') or count)
     if old > count or new > count:
         raise NotFound(gettext("The revision(s) you are looking for does not exist."))
@@ -120,8 +120,8 @@ def revisions(id):
     if review.is_hidden and not current_user.is_admin():
         raise NotFound(gettext("Review has been hidden."))
 
-    revisions, count = db_revision.get(str(id), order_desc=True)
-    votes = db_revision.get_votes(str(id))
+    revisions, count = db_revision.get(id, order_desc=True)
+    votes = db_revision.get_votes(id)
     revisions = revisions[: RESULTS_LIMIT]
     results = list(zip(reversed(range(count-RESULTS_LIMIT, count)), revisions))
     return render_template('review/revisions.html', review=review, results=results, count=count, limit=RESULTS_LIMIT, votes=votes)
@@ -141,9 +141,9 @@ def revisions_more(id):
     page = int(request.args.get('page', default=0))
     offset = page * RESULTS_LIMIT
 
-    revisions, count = db_revision.get(str(id), order_desc=True)
+    revisions, count = db_revision.get(id, order_desc=True)
     revisions = revisions[offset:offset+RESULTS_LIMIT]
-    votes = db_revision.get_votes(str(id))
+    votes = db_revision.get_votes(id)
     results = list(zip(reversed(range(count-offset-RESULTS_LIMIT, count-offset)), revisions))
 
     template = render_template('review/revision_results.html', review=review, results=results, count=count, votes=votes)
