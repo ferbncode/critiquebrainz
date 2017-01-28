@@ -4,6 +4,8 @@ from critiquebrainz.data.model.revision import Revision
 from critiquebrainz.data.model.review import Review
 from critiquebrainz.data.model.license import License
 from critiquebrainz.data.model.vote import Vote
+from critiquebrainz.data.model.user import User
+
 from critiquebrainz.db import exceptions
 from critiquebrainz.db import revision
 from critiquebrainz.db import vote
@@ -20,7 +22,7 @@ class RevisionTestCase(DataTestCase):
         self.user_1 = User.get_or_create('Tester #1', musicbrainz_id='1')
         self.user_2 = User.get_or_create('Tester #2', musicbrainz_id='2')
 
-        self.license = Liscense(id=u'TEST', full_name=u"Test License")
+        self.license = License(id=u'TEST', full_name=u"Test License")
         db.session.add(self.license)
         db.session.commit()
 
@@ -30,36 +32,37 @@ class RevisionTestCase(DataTestCase):
                                     is_draft=False,
                                     license_id=self.license.id)
 
-        def test_get(self):
-            """Test the get function that gets revisions for the test review, optionally ordered by the timestamp"""
+    def test_get_func(self):
+        """Test the get function that gets revisions for the test review, optionally ordered by the timestamp"""
 
-            review_id = self.review.id
-            first_revision = revision.get(review_id)[0]
-            self.assertEqual(first_revision.text, "Testing!")
-            self.assertEqual(first_revision.review_id, self.review.id)
-            self.assertEqual(type(first_revision.timestamp), datetime)
-            self.assertEqual(type(first_revision.id), int)
-            self.assertEqual(type(first_revision.review_id), UUID)
+        review_id = self.review.id
+        revisions, count = revision.get(review_id)
+        first_revision = revisions[0]
+        self.assertEqual(first_revision.text, "Testing!")
+        self.assertEqual(type(first_revision.timestamp), datetime)
+        self.assertEqual(type(first_revision.id), int)
 
-            self.review.update(text="Testing Again!")
-            # order by desc ensures that the second revision refers to the latest revision
-            second_revision = revision.get(review_id, order_desc=True)[0]
-            self.assertEqual(second_revision.text, "Testing Again!")
-            self.assertEqual(second_revision.review_id, self.review.id)
-            self.assertEqual(type(second_revision.timestamp), datetime)
-            self.assertEqual(type(second_revision.id), int)
+        self.review.update(text="Testing Again!")
+        # order by desc ensures that the second revision refers to the latest revision
+        revisions, count = revision.get(review_id, order_desc=True)
+        second_revision = revisions[0]
+        self.assertEqual(second_revision.text, "Testing Again!")
+        self.assertEqual(type(second_revision.timestamp), datetime)
+        self.assertEqual(type(second_revision.id), int)
 
-        def test_get_votes(self):
-            """Test to get the number of votes on revisions of a review"""
+    def test_get_votes_func(self):
+        """Test to get the number of votes on revisions of a review"""
 
-            review_id = self.review.id
-            first_revision = revision.get(review_id)[0]
-            vote.submit(self.user_1.id, first_revision.id, True)
-            vote.submit(self.user_2.id, first_revision.id, False)
-            votes = revision.get_votes(review_id, order_desc=True)
-            first_revision = revision.get(reivew_id)[0]
-            votes_first_revision = votes[first_revision.id]
-            assertDictEqual(votes_first_revision, {
-                "positive":2,
-                "negative":1
-            })
+        review_id = self.review.id
+        revisions, count = revision.get(review_id)
+        first_revision = revisions[0]
+        vote.submit(self.user_1.id, first_revision.id, True)
+        vote.submit(self.user_2.id, first_revision.id, False)
+        votes = revision.get_votes(review_id)
+        revisions, count = revision.get(review_id)
+        first_revision = revisions[0]
+        votes_first_revision = votes[first_revision.id]
+        self.assertDictEqual(votes_first_revision, {
+            "positive":1,
+            "negative":1
+        })
