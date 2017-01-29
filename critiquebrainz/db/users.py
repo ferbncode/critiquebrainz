@@ -1,5 +1,4 @@
 from hashlib import md5
-from critiquebrainz.db import exceptions as db_exceptions
 import critiquebrainz.db.revision as db_revision
 import sqlalchemy
 from critiquebrainz import db
@@ -150,7 +149,7 @@ def get_count():
     return count
 
 
-def list(limit=0, offset=0):
+def list(limit=None, offset=0):
 
     with db.engine.connect() as connection:
         result = connection.execute(sqlalchemy.text("""
@@ -163,10 +162,7 @@ def list(limit=0, offset=0):
             "offset": offset
         })
         rows = result.fetchall()
-        if not rows:
-            raise db_exceptions.NoDataFoundException("No users found")
-        else:
-            rows = [dict(row) for row in rows]
+        rows = [dict(row) for row in rows]
     return rows
 
 
@@ -231,7 +227,7 @@ def karma(user_id):
         rows = result.fetchall()
         _karma = 0
         for row in rows:
-            if row.vote == 't':
+            if row.vote == True:
                 _karma += 1
             else:
                 _karma -= 1
@@ -279,14 +275,14 @@ def get_reviews(user_id, date='1-1-1970'):
            SELECT *
            FROM review
       LEFT JOIN
-        (SELECT review_id,
-                min(timestamp)
+        (SELECT review_id
+              , min(timestamp)
              AS creation_time
            FROM revision
        GROUP BY review_id)
              AS review_create
              ON review.id = review_id
-          WHERE user = :user_id
+          WHERE user_id = :user_id
             AND creation_time > :date
         """), {
             "user_id": user_id,
@@ -321,8 +317,9 @@ def update(user, display_name=None, email=None, show_gravatar=None):
             "email": email
         })
 
+
 def delete(user_id):
-    """Delete votes, reviews, revisions, user_id"""
+    """Delete votes, reviews, revisions, user and spam reports"""
     with db.engine.connect() as connection:
         connection.execute(sqlalchemy.text("""
             DELETE
@@ -335,6 +332,13 @@ def delete(user_id):
             DELETE
               FROM "vote"
              WHERE user_id = :user_id
+        """), {
+            "user_id": user_id
+        })
+        connection.execute(sqlalchemy.text("""
+            DELETE
+              FROM "user"
+             WHERE id = :user_id
         """), {
             "user_id": user_id
         })
@@ -355,6 +359,7 @@ def delete(user_id):
             """), {
                 "review_id": review['id']
             })
+
 
 def clients(user_id):
     with db.engine.connect() as connection:
@@ -385,17 +390,3 @@ def tokens(user_id):
         rows = [dict(row) for row in rows]
     return rows
 
-
-def grants(user_id):
-    with db.engine.connect() as connection:
-        result = connection.execute(sqlalchemy.text("""
-            SELECT *
-              FROM oauth_grant
-             WHERE user_id = :user_id
-        """), {
-            "user_id": user_id
-        })
-
-        rows = result.fetchall()
-        rows = [dict(row) for row in rows]
-    return rows
