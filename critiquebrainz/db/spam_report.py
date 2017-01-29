@@ -136,30 +136,62 @@ def list_reports(**kwargs):
         raise TypeError('Unexpected **kwargs: %r' % kwargs)
 
     filterstr = "AND".join(filters)
+
     if filterstr:
         # Use WHERE only when there is data to filter.
-        query = sqlalchemy.text("""SELECT user_id,
-                                          reason,
-                                          revision_id,
-                                          reported_at,
-                                          is_archived
-                                     FROM spam_report
-                                    WHERE {}
-                                   OFFSET :offset
-                                    LIMIT :limit
-                """.format(filterstr))
-    else:
-        query = sqlalchemy.text("""SELECT user_id,
-                                          reason,
-                                          revision_id,
-                                          reported_at,
-                                          is_archived
-                                     FROM spam_report
-                                   OFFSET :offset
-                                    LIMIT :limit
-                """)
+        filterstr = "WHERE " + filterstr
+
+    query = sqlalchemy.text("""
+        SELECT "user".id as reporter_id,
+               "user".display_name as reporter_name,
+               user_id,
+               reason,
+               revision_id,
+               reported_at,
+               is_archived,
+               review_uuid,
+               review_user_id,
+               entity_id,
+               review_user_display_name
+          FROM "user"
+    INNER JOIN (spam_report
+               INNER JOIN (revision
+                           INNER JOIN (
+                           SELECT review.id as review_uuid,
+                                  "user".id as review_user_id,
+                                  review.entity_id,
+                                  "user".display_name as review_user_display_name
+                             FROM review
+                       INNER JOIN "user"
+                               ON "user".id = review.user_id)
+                               AS review_detail
+                               ON review_id = review_detail.review_uuid)
+                       ON spam_report.revision_id = revision.id)
+            ON spam_report.user_id = "user".id
+            {}
+        OFFSET :offset
+         LIMIT :limit
+    """.format(filterstr))
+
     with db.engine.connect() as connection:
         result = connection.execute(query, filter_data)
-        rows = result.fetchall()
-        rows = [dict(row) for row in rows]
-    return rows, len(rows)
+        spam_reports = result.fetchall()
+        if spam_reports:
+            spam_reports = [dict(spam_report) for spam_report in spam_reports]
+            for spam_report in spam_reports:
+
+                spam_report["review"] = {
+                    "user": {
+                        "id": spam_report.pop("review_user_id"),
+                        "display_name": spam_report.pop("review_user_display_name"),
+                    },
+                    "id": spam_report["review_uuid"],
+                    "entity_id": spam_report.pop("entity_id"),
+                    "last_revision": db_revision.get(spam_report.pop("review_uuid")),
+                }
+
+                spam_report["user"] = {
+                    "id": spam_report.pop("reporter_id"),
+                    "display_name": spam_report.pop("reporter_name"),
+                }
+    return spam_reports, len(spam_reports)
