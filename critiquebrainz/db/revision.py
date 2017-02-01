@@ -70,7 +70,7 @@ def get_votes(review_id):
         votes = dict()
         for row in rows:
             revision = row.id
-            if not votes.get(revision):
+            if revision not in votes:
                 votes[revision] = {'positive':0, 'negative':0}
             if row.vote == False:
                 votes[revision]['negative'] += 1

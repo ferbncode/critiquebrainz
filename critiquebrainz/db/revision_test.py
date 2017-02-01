@@ -36,7 +36,6 @@ class RevisionTestCase(DataTestCase):
         self.assertEqual(type(first_revision['id']), int)
 
         self.review.update(text="Testing Again!")
-        # order by desc ensures that the second revision refers to the latest revision
         revisions, count = revision.get(review_id)
         second_revision = revisions[0]
         self.assertEqual(second_revision['text'], "Testing Again!")
