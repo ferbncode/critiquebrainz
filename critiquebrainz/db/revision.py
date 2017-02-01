@@ -10,12 +10,14 @@ def get(review_id):
         review_id (uuid): ID of review
 
     Returns:
-        List of RowProxy items which are the revisions of the review
-        with the following attributes:
-
-        revision id (int),
-        text (string),
-        timestamp (datetime)
+        List of dictionaries of revisions of the review
+        with the following structure:
+        {
+            "id": (int),
+            "review_id": (uuid),
+            "timestamp": (datetime),
+            "text": (string)
+        }
 
         and the number(count) of reviews
     """
