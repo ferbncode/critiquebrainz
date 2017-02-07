@@ -1,6 +1,7 @@
 from hashlib import md5
 import sqlalchemy
 from critiquebrainz import db
+import uuid
 
 
 def gravatar_url(source, default="identicon", rating="pg"):
@@ -102,6 +103,7 @@ def create(dispay_name, musicbrainz_id, **kwargs):
     with db.engine.connect() as connection:
         result = connection.execute(sqlalchemy.text("""
             INSERT INTO "user"
+
 
 def get_or_create(display_name, musicbrainz_id, **kwargs):
 
