@@ -1,6 +1,7 @@
 from hashlib import md5
 import sqlalchemy
 from critiquebrainz import db
+from datetime import datetime
 import uuid
 
 
@@ -86,30 +87,51 @@ def get_user(user_id):
         return dict(row) if row else None
 
 
-def get_by_mbid(musicbrainz_id):
-    with db.engine.connect() as connection:
-        result = connection.execute(sqlalchemy.text("""
-            SELECT *
-            FROM "user"
-            WHERE musicbrainz_id = :musicbrainz_id
-        """){
-            "musicbrainz_id": musicbrainz_id
-        })
-        row = result.fetchone()
-        return dict(row) if row else None
+# def get_by_mbid(musicbrainz_id):
+    # with db.engine.connect() as connection:
+        # result = connection.execute(sqlalchemy.text("""
+            # SELECT *
+            # FROM "user"
+            # WHERE musicbrainz_id = :musicbrainz_id
+        # """){
+            # "musicbrainz_id": musicbrainz_id
+        # })
+        # row = result.fetchone()
+        # return dict(row) if row else None
 
 
-def create(dispay_name, musicbrainz_id, **kwargs):
+def create(dispay_name, **kwargs):
+    id = str(uuid.uuid4())
+    musicbrainz_id = kwargs.pop('musicbrainz_id', None)
+    email = kwargs.pop('email', None)
+    show_gravatar = kwargs.pop('show_gravatar', False)
+    is_blocked = kwargs.pop('is_blocked', False)
+    if(kwargs):
+        raise TypeError('Unexpected **kwargs: %r' % kwargs)
+
     with db.engine.connect() as connection:
         result = connection.execute(sqlalchemy.text("""
             INSERT INTO "user"
+                 VALUES (:id, :display_name, :email, :created, :musicbrainz_id, :show_gravatar, :is_blocked)
+              RETURNING id
+            """){
+                "id": id,
+                "display_name": display_name,
+                "email": email,
+                "created": datetime.now(),
+                "musicbrainz_id": musicbrainz_id,
+                "show_gravatar": show_gravatar,
+                "is_blocked": is_blocked
+            })
+            new_id = result.fetchone()[0]
+            return new_id
 
 
 def get_or_create(display_name, musicbrainz_id, **kwargs):
 
     user = get_by_mbid(musicbrainz_id)
     if not user:
-        create(display_name, musicbrainz_id, **kwargs)
+        create(display_name, musicbrainz_id=musicbrainz_id, **kwargs)
         user = get_by_mbid(musicbrainz_id)
     return user
 
