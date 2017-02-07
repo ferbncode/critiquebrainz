@@ -70,3 +70,35 @@ def get_many_by_mb_username(usernames):
             else:
                 user["avatar_url"] = gravatar_url(default_gravatar_src)
         return users
+
+def get_user(user_id):
+
+    with db.engine.connect() as connection:
+        result = connection.execute(sqlalchemy.text("""
+            SELECT *
+              FROM "user"
+             WHERE id = :user_id
+        """){
+            "user_id": user_id
+        })
+        row = result.fetchone()
+        return dict(row) if row else None
+
+
+def get_or_create(display_name, musicbrainz_id, **kwargs):
+
+    with db.engine.connect() as connection:
+        result = connection.execute(sqlalchemy.text("""
+            SELECT *
+              FROM "user"
+             WHERE musicbrainz_id = :musicbrainz_id
+        """){
+            "musicbrainz_id": musicbrainz_id
+        })
+        row = result.fetchone()
+        if row:
+            return dict(row)
+        else:
+            create(
+
+

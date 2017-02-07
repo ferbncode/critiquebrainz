@@ -46,7 +46,7 @@ class BaseAuthentication(object):
 
 
 class MusicBrainzAuthentication(BaseAuthentication):
-  
+
     def get_authentication_uri(self, **kwargs):
         csrf = generate_string(20)
         self.persist_data(csrf=csrf)
