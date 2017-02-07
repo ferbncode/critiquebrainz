@@ -85,20 +85,33 @@ def get_user(user_id):
         return dict(row) if row else None
 
 
-def get_or_create(display_name, musicbrainz_id, **kwargs):
-
+def get_by_mbid(musicbrainz_id):
     with db.engine.connect() as connection:
         result = connection.execute(sqlalchemy.text("""
             SELECT *
-              FROM "user"
-             WHERE musicbrainz_id = :musicbrainz_id
+            FROM "user"
+            WHERE musicbrainz_id = :musicbrainz_id
         """){
             "musicbrainz_id": musicbrainz_id
         })
         row = result.fetchone()
-        if row:
-            return dict(row)
-        else:
-            create(
+        return dict(row) if row else None
+
+
+def create(dispay_name, musicbrainz_id, **kwargs):
+    with db.engine.connect() as connection:
+        result = connection.execute(sqlalchemy.text("""
+            INSERT INTO "user"
+
+def get_or_create(display_name, musicbrainz_id, **kwargs):
+
+    user = get_by_mbid(musicbrainz_id)
+    if not user:
+        create(display_name, musicbrainz_id, **kwargs)
+        user = get_by_mbid(musicbrainz_id)
+    return user
+
+
+
 
 

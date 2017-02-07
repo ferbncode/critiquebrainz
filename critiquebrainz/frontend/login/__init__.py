@@ -8,7 +8,7 @@ from flask_login import LoginManager, current_user
 from flask_babel import lazy_gettext, gettext
 # from critiquebrainz.data.model.user import User
 from critiquebrainz.data.model.mixins import AnonymousUser, AdminMixin, DeleteMixin
-from critiquebrainz.db import db_user
+import critiquebrainz.db.users as db_user
 from werkzeug.exceptions import Unauthorized
 from functools import wraps
 
