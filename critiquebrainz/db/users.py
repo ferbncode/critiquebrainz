@@ -1,6 +1,10 @@
 from hashlib import md5
+from critiquebrainz.db import exceptions as db_exceptions
 import sqlalchemy
 from critiquebrainz import db
+from datetime import datetime
+import uuid
+
 
 
 def gravatar_url(source, default="identicon", rating="pg"):
@@ -70,3 +74,125 @@ def get_many_by_mb_username(usernames):
             else:
                 user["avatar_url"] = gravatar_url(default_gravatar_src)
         return users
+
+
+def get_by_id(user_id):
+
+    with db.engine.connect() as connection:
+        result = connection.execute(sqlalchemy.text("""
+            SELECT *
+              FROM "user"
+             WHERE id = :user_id
+        """), {
+            "user_id": user_id
+        })
+        row = result.fetchone()
+    return dict(row) if row else None
+
+
+def create(display_name, **kwargs):
+    id = str(uuid.uuid4())
+    musicbrainz_id = kwargs.pop('musicbrainz_id', None)
+    email = kwargs.pop('email', None)
+    show_gravatar = kwargs.pop('show_gravatar', False)
+    is_blocked = kwargs.pop('is_blocked', False)
+    if(kwargs):
+        raise TypeError('Unexpected **kwargs: %r' % kwargs)
+
+    with db.engine.connect() as connection:
+        result = connection.execute(sqlalchemy.text("""
+            INSERT INTO "user"
+                 VALUES (:id, :display_name, :email, :created, :musicbrainz_id, :show_gravatar, :is_blocked)
+              RETURNING id
+            """), {
+                "id": id,
+                "display_name": display_name,
+                "email": email,
+                "created": datetime.now(),
+                "musicbrainz_id": musicbrainz_id,
+                "show_gravatar": show_gravatar,
+                "is_blocked": is_blocked
+            })
+        new_id = result.fetchone()[0]
+        user = get_user(new_id)
+    return user
+
+
+def get_by_mbid(musicbrainz_id):
+    with db.engine.connect() as connection:
+        result = connection.execute(sqlalchemy.text("""
+            SELECT *
+            FROM "user"
+            WHERE musicbrainz_id = :musicbrainz_id
+        """), {
+            "musicbrainz_id": musicbrainz_id
+        })
+        row = result.fetchone()
+    return dict(row) if row else None
+
+
+def get_or_create(display_name, musicbrainz_id, **kwargs):
+
+    user = get_by_mbid(musicbrainz_id)
+    if not user:
+        user = create(display_name, musicbrainz_id=musicbrainz_id, **kwargs)
+    return user
+
+
+def get_count():
+
+    with db.engine.connect() as connection:
+        result = connection.execute(sqlalchemy.text("""
+            SELECT count(*)
+              FROM "user"
+        """),{}
+        )
+        count = result.fetchone()[0]
+    return count
+
+
+def list(limit=0, offset=0):
+
+    with db.engine.connect() as connection:
+        result = connection.execute(sqlalchemy.text("""
+            SELECT *
+              FROM "user"
+             LIMIT :limit
+            OFFSET :offset
+        """), {
+            "limit": limit,
+            "offset": offset
+        })
+        rows = result.fetchall()
+        if not rows:
+            raise db_exceptions.NoDataFoundException("No users found")
+        else:
+            rows = [dict(row) for row in rows]
+    return rows
+
+
+def unblock(user_id):
+
+    with db.engine.connect() as connection:
+        connection.execute(sqlalchemy.text("""
+            UPDATE "user"
+               SET is_blocked = 'false'
+             WHERE id = :user_id
+        """), {
+            "user_id": user_id
+        })
+
+
+def block(user_id):
+
+    with db.engine.connect() as connection:
+        connection.execute(sqlalchemy.text("""
+            UPDATE "user"
+               SET is_blocked = 'true'
+            WHERE id = :user_id
+        """), {
+            "user_id": user_id
+        })
+
+
+
