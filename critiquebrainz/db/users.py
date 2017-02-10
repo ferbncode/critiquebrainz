@@ -194,5 +194,12 @@ def block(user_id):
             "user_id": user_id
         })
 
+# def karma(user_id):
 
+    # with db.engine.connect() as connection:
+        # connection.execute(sqlalchemy.text("""
+            # sel
+            
+
+def get_votes(user_id):
 
