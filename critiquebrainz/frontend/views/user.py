@@ -4,12 +4,11 @@ from flask_login import login_required, current_user
 
 from critiquebrainz.data.model.moderation_log import ModerationLog, ACTION_BLOCK_USER
 from critiquebrainz.data.model.review import Review
-# from critiquebrainz.data.model.user import User
 from critiquebrainz.db.user import User
 from critiquebrainz.frontend.forms.log import AdminActionForm
 from critiquebrainz.frontend.login import admin_view
 from critiquebrainz.frontend import flash
-import critiquebrainz.db.users as db_user
+import critiquebrainz.db.users as db_users
 
 user_bp = Blueprint('user', __name__)
 
@@ -20,7 +19,7 @@ def reviews(user_id):
     if current_user.is_authenticated and current_user.id == user_id:
         user = current_user
     else:
-        user = db_user.get_by_id(user_id)
+        user = db_users.get_by_id(user_id)
         if not user:
             abort(404)
         user = User(user)
@@ -38,7 +37,7 @@ def reviews(user_id):
 
 @user_bp.route('/<uuid:user_id>/info')
 def info(user_id):
-    user = db_user.get_by_id(user_id)
+    user = db_users.get_by_id(user_id)
     if not user:
         abort(404)
     user = User(user)
@@ -49,7 +48,7 @@ def info(user_id):
 @login_required
 @admin_view
 def block(user_id):
-    user = db_user.get_by_id(user_id)
+    user = db_users.get_by_id(user_id)
     if not user:
         abort(404)
 
@@ -59,7 +58,7 @@ def block(user_id):
 
     form = AdminActionForm()
     if form.validate_on_submit():
-        db_user.block(user['id'])
+        db_users.block(user['id'])
         ModerationLog.create(admin_id=current_user.id, action=ACTION_BLOCK_USER,
                              reason=form.reason.data, user_id=user['id'])
         flash.success(gettext("This user account has been blocked."))
@@ -72,9 +71,9 @@ def block(user_id):
 @login_required
 @admin_view
 def unblock(user_id):
-    user = db_user.get_by_id(user_id)
+    user = db_users.get_by_id(user_id)
     if not user:
         abort(404)
-    db_user.unblock(user['id'])
+    db_users.unblock(user['id'])
     flash.success(gettext("This user account has been unblocked."))
     return redirect(url_for('user.reviews', user_id=user['id']))

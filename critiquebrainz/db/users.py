@@ -7,7 +7,6 @@ from datetime import datetime
 import uuid
 
 
-
 def gravatar_url(source, default="identicon", rating="pg"):
     """Generates Gravatar URL from a source ID.
 
@@ -115,7 +114,7 @@ def create(display_name, **kwargs):
                 "is_blocked": is_blocked
             })
         new_id = result.fetchone()[0]
-        user = get_user(new_id)
+        user = get_by_id(new_id)
     return user
 
 
@@ -216,7 +215,7 @@ def karma(user_id):
 
     with db.engine.connect() as connection:
         result = connection.execute(sqlalchemy.text("""
-            SELECT user_id, vote
+            SELECT review.user_id, vote
               FROM ((vote
          LEFT JOIN revision
                 ON revision.id = revision_id)
@@ -288,7 +287,7 @@ def get_reviews(user_id, date='1-1-1970'):
              AS review_create
              ON review.id = review_id
           WHERE user = :user_id
-            AND creation_time > date
+            AND creation_time > :date
         """), {
             "user_id": user_id,
             "date": date
@@ -300,7 +299,7 @@ def get_reviews(user_id, date='1-1-1970'):
     return rows
 
 
-def update(user, dispaly_name=None, email=None, show_gravatar=None):
+def update(user, display_name=None, email=None, show_gravatar=None):
     if display_name is None:
         display_name = user.display_name
     if show_gravatar is None:
@@ -311,10 +310,92 @@ def update(user, dispaly_name=None, email=None, show_gravatar=None):
     with db.engine.connect() as connection:
         connection.execute(sqlalchemy.text("""
             UPDATE "user"
-               SET display_name = display_name,
-                  show_gravatar = show_gravatar,
-                           email = email
-             WHERE user_id = :user_id
+               SET display_name = :display_name,
+                  show_gravatar = :show_gravatar,
+                          email = :email
+             WHERE id = :user_id
         """), {
             "user_id": user.id,
+            "display_name": display_name,
+            "show_gravatar": show_gravatar,
+            "email": email
         })
+
+def delete(user_id):
+    """Delete votes, reviews, revisions, user_id"""
+    with db.engine.connect() as connection:
+        connection.execute(sqlalchemy.text("""
+            DELETE
+              FROM "user"
+             WHERE id = :user_id
+        """), {
+            "user_id": user_id
+        })
+        connection.execute(sqlalchemy.text("""
+            DELETE
+              FROM "vote"
+             WHERE user_id = :user_id
+        """), {
+            "user_id": user_id
+        })
+    user_reviews = reviews(user_id)
+    with db.engine.connect() as connection:
+        for review in user_reviews:
+            connection.execute(sqlalchemy.text("""
+                DELETE
+                  FROM review
+                 WHERE id = :review_id
+            """), {
+                "review_id": review['id']
+            })
+            connection.execute(sqlalchemy.text("""
+                DELETE
+                  FROM revision
+                 WHERE review_id = :review_id
+            """), {
+                "review_id": review['id']
+            })
+
+def clients(user_id):
+    with db.engine.connect() as connection:
+        result = connection.execute(sqlalchemy.text("""
+            SELECT *
+              FROM oauth_client
+             WHERE user_id = :user_id
+        """), {
+            "user_id": user_id
+        })
+
+        rows = result.fetchall()
+        rows = [dict(row) for row in rows]
+    return rows
+
+
+def tokens(user_id):
+    with db.engine.connect() as connection:
+        result = connection.execute(sqlalchemy.text("""
+            SELECT *
+              FROM oauth_token
+             WHERE user_id = :user_id
+        """), {
+            "user_id": user_id
+        })
+
+        rows = result.fetchall()
+        rows = [dict(row) for row in rows]
+    return rows
+
+
+def grants(user_id):
+    with db.engine.connect() as connection:
+        result = connection.execute(sqlalchemy.text("""
+            SELECT *
+              FROM oauth_grant
+             WHERE user_id = :user_id
+        """), {
+            "user_id": user_id
+        })
+
+        rows = result.fetchall()
+        rows = [dict(row) for row in rows]
+    return rows

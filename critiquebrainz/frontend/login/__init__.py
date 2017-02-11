@@ -10,7 +10,7 @@ from critiquebrainz.data.model.mixins import AnonymousUser
 from werkzeug.exceptions import Unauthorized
 from functools import wraps
 from critiquebrainz.db.user import User
-import critiquebrainz.db.users as db_user
+import critiquebrainz.db.users as db_users
 
 mb_auth = None
 
@@ -23,7 +23,7 @@ login_manager.anonymous_user = AnonymousUser
 
 @login_manager.user_loader
 def load_user(user_id):
-    user = db_user.get_by_id(user_id)
+    user = db_users.get_by_id(user_id)
     if user:
         return User(user)
     else:

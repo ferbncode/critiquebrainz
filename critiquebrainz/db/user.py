@@ -1,9 +1,9 @@
 from critiquebrainz.data.model.mixins import DeleteMixin, AdminMixin
-import critiquebrainz.db.users as db_user
+import critiquebrainz.db.users as db_users
 import hashlib
 from critiquebrainz.data.constants import user_types
 from datetime import date, datetime, timedelta
-import critiquebrainz.db.users as db_user
+import critiquebrainz.db.users as db_users
 
 
 class User(AdminMixin, DeleteMixin):
@@ -28,7 +28,7 @@ class User(AdminMixin, DeleteMixin):
 
     @property
     def is_vote_limit_exceeded(self):
-        if self.vote_today_count() >= self.user_type.votes_per_day:
+        if self.votes_today_count() >= self.user_type.votes_per_day:
             return True
         else:
             return False
@@ -43,41 +43,40 @@ class User(AdminMixin, DeleteMixin):
     @property
     def karma(self):
         if hasattr(self, '_karma') is False:
-            self._karma = db_user.karma(self.id)
+            self._karma = db_users.karma(self.id)
         return self._karma
 
     @property
     def reviews(self):
-        return db_user.reviews(self.id)
+        return db_users.reviews(self.id)
 
     @property
     def votes(self):
-        return db_user.get_votes(self.id)
+        return db_users.get_votes(self.id)
 
     def votes_since(self, date):
-        return db_user.get_votes(self.id, date=date)
+        return db_users.get_votes(self.id, date=date)
 
     def votes_since_count(self, date):
-        return len(db_user.get_votes(self.id, date=date))
+        return len(db_users.get_votes(self.id, date=date))
 
     def votes_today(self):
-        return db_user.get_vote(self.id, date.today())
+        return db_users.get_votes(self.id, date.today())
 
     def votes_today_count(self):
-        return len(db_user.get_vote(self.id, date.today()))
-
+        return len(db_users.get_votes(self.id, date.today()))
 
     def reviews_since(self, date):
-        return db_user.get_reviews(self.id)
+        return db_users.get_reviews(self.id)
 
     def reviews_since_count(self, date):
-        return len(db_user.get_reviews(self.id))
+        return len(db_users.get_reviews(self.id))
 
     def reviews_today(self):
         return self.reviews_since(date.today())
 
     def reviews_today_count(self):
-        return len(self.reviews_since_count(date.today()))
+        return self.reviews_since_count(date.today())
 
     @property
     def user_type(self):
@@ -93,8 +92,8 @@ class User(AdminMixin, DeleteMixin):
     def stats(self):
         today = date.today()
         return dict(
-            reviews_today=self.reviews.today_count(),
-            reviews_last_7_days=self.review_since_count(today - timedelta(days=7)),
+            reviews_today=self.reviews_today_count(),
+            reviews_last_7_days=self.reviews_since_count(today - timedelta(days=7)),
             reviews_this_month=self.reviews_since_count(date(today.year, today.month, 1)),
             votes_today=self.votes_today_count(),
             votes_last_7_days=self.votes_since_count(today-timedelta(days=7)),
@@ -132,6 +131,3 @@ class User(AdminMixin, DeleteMixin):
                 votes_this_month=self.votes_since_count(date(today.year, today.month, 1)))
 
         return response
-
-
-
