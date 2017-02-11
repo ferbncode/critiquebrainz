@@ -1,5 +1,6 @@
 from hashlib import md5
 from critiquebrainz.db import exceptions as db_exceptions
+import critiquebrainz.db.revision as db_revision
 import sqlalchemy
 from critiquebrainz import db
 from datetime import datetime
@@ -145,8 +146,7 @@ def get_count():
         result = connection.execute(sqlalchemy.text("""
             SELECT count(*)
               FROM "user"
-        """),{}
-        )
+        """))
         count = result.fetchone()[0]
     return count
 
@@ -194,12 +194,84 @@ def block(user_id):
             "user_id": user_id
         })
 
-# def karma(user_id):
+def has_voted(user_id, review_id):
 
+    last_revision = db_revision.get(review_id, limit=1)[0]
+    with db.engine.connect() as connection:
+        result = connection.execute(sqlalchemy.text("""
+            SELECT count(*)
+              FROM vote
+             WHERE revision_id = :revision_id
+               AND user_id = :user_id
+            """), {
+                "revision_id": last_revision['id'],
+                "user_id": user_id
+            })
+        count = result.fetchone()[0]
+        return count > 0
+
+def karma(user_id):
+
+    with db.engine.connect() as connection:
+        result = connection.execute(sqlalchemy.text("""
+            SELECT user_id, vote
+              FROM ((vote
+         LEFT JOIN revision
+                ON revision.id = revision_id)
+         LEFT JOIN review
+                ON review.id = review_id)
+         LEFT JOIN "user"
+                ON "user".id = review.user_id
+             WHERE "user".id = :user_id
+        """), {
+            "user_id": user_id
+        })
+
+        rows = result.fetchall()
+        _karma = 0
+        for row in rows:
+            if row.vote == 't':
+                _karma += 1
+            else:
+                _karma -= 1
+    return _karma
+
+
+
+def get_reviews(user_id):
+
+    with db.engine.connect() as connection:
+        result = connection.execute(sqlalchemy.text("""
+            SELECT *
+              FROM review
+             WHERE user_id = :user_id
+        """), {
+            "user_id": user_id
+        })
+
+        rows = result.fetchall()
+        rows = [dict(row) for row in rows]
+
+    return rows
+
+
+def get_votes(user_id, date=0):
+    with db.engine.connect() as connection:
+        result = connection.execute(sqlalchemy.text("""
+            SELECT vote
+              FROM vote
+             WHERE user_id = :user_id
+               AND timestamp >= :date
+        """), {
+            "user_id": user_id,
+            "date": date
+        })
+
+        rows = result.fetchall()
+        rows = [dict(row) for row in rows]
+
+    return rows
+
+# def get_reviews_since(user_id, date):
     # with db.engine.connect() as connection:
-        # connection.execute(sqlalchemy.text("""
-            # sel
-            
-
-def get_votes(user_id):
 

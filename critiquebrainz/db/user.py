@@ -2,6 +2,7 @@ from critiquebrainz.data.model.mixins import DeleteMixin, AdminMixin
 import critiquebrainz.db.users as db_user
 import hashlib
 from critiquebrainz.data.constants import user_types
+import critiquebrainz.db.users as db_user
 # def has_voted(user_id, review_id):
 # def review_limit_exceeded(user) # def vote_limit_exceeded(user)
 # get_karma() understand
@@ -28,11 +29,12 @@ class User(AdminMixin, DeleteMixin):
             return "https://gravatar.com/avatar/" + hashlib.md5(self.id.encode("utf-8")).hexdigest() + "?d=identicon"
 
 
-
     @property
     def karma(self):
-        #TODO: Do this
-        return 33
+        if hasattr(self, '_karma') is False:
+            self._karma = db_user.karma(self.id)
+        return self._karma
+
 
     @property
     def user_type(self):
