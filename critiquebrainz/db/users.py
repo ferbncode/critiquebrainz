@@ -194,6 +194,7 @@ def block(user_id):
             "user_id": user_id
         })
 
+
 def has_voted(user_id, review_id):
 
     last_revision = db_revision.get(review_id, limit=1)[0]
@@ -209,6 +210,7 @@ def has_voted(user_id, review_id):
             })
         count = result.fetchone()[0]
         return count > 0
+
 
 def karma(user_id):
 
@@ -237,8 +239,7 @@ def karma(user_id):
     return _karma
 
 
-
-def get_reviews(user_id):
+def reviews(user_id):
 
     with db.engine.connect() as connection:
         result = connection.execute(sqlalchemy.text("""
@@ -255,13 +256,13 @@ def get_reviews(user_id):
     return rows
 
 
-def get_votes(user_id, date=0):
+def get_votes(user_id, date='1-1-1970'):
     with db.engine.connect() as connection:
         result = connection.execute(sqlalchemy.text("""
             SELECT vote
               FROM vote
              WHERE user_id = :user_id
-               AND timestamp >= :date
+               AND rated_at >= :date
         """), {
             "user_id": user_id,
             "date": date
@@ -272,6 +273,48 @@ def get_votes(user_id, date=0):
 
     return rows
 
-# def get_reviews_since(user_id, date):
-    # with db.engine.connect() as connection:
 
+def get_reviews(user_id, date='1-1-1970'):
+    with db.engine.connect() as connection:
+        result = connection.execute(sqlalchemy.text("""
+           SELECT *
+           FROM review
+      LEFT JOIN
+        (SELECT review_id,
+                min(timestamp)
+             AS creation_time
+           FROM revision
+       GROUP BY review_id)
+             AS review_create
+             ON review.id = review_id
+          WHERE user = :user_id
+            AND creation_time > date
+        """), {
+            "user_id": user_id,
+            "date": date
+        })
+
+        rows = result.fetchall()
+        rows = [dict(row) for row in rows]
+
+    return rows
+
+
+def update(user, dispaly_name=None, email=None, show_gravatar=None):
+    if display_name is None:
+        display_name = user.display_name
+    if show_gravatar is None:
+        show_gravatar = user.show_gravatar
+    if email is None:
+        email = user.email
+
+    with db.engine.connect() as connection:
+        connection.execute(sqlalchemy.text("""
+            UPDATE "user"
+               SET display_name = display_name,
+                  show_gravatar = show_gravatar,
+                           email = email
+             WHERE user_id = :user_id
+        """), {
+            "user_id": user.id,
+        })
