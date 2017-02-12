@@ -3,7 +3,6 @@ import critiquebrainz.db.users as db_users
 import hashlib
 from critiquebrainz.data.constants import user_types
 from datetime import date, datetime, timedelta
-import critiquebrainz.db.users as db_users
 
 
 class User(AdminMixin, DeleteMixin):
@@ -14,8 +13,8 @@ class User(AdminMixin, DeleteMixin):
         self.email = user.get('email')
         self.created = user.get('created')
         self.musicbrainz_id = user.get('musicbrainz_id')
-        self.show_gravatar = user.get('show_gravatar')
-        self.is_blocked = user.get('is_blocked')
+        self.show_gravatar = user.get('show_gravatar', False)
+        self.is_blocked = user.get('is_blocked', False)
         allowed_includes = ('user_type', 'stats')
 
     @property
