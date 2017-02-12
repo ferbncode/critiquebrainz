@@ -70,8 +70,8 @@ class UserTestCase(DataTestCase):
         self.assertEqual(user['display_name'], "test")
 
     def test_create(self):
-        user = db_users.create("test_user", email="dummy@dummy.com", musicbrainz_id="tester2")
-        self.assertEqual(user['email'], "dummy@dummy.com")
+        user = db_users.create("test_user", email="foo@foo.com", musicbrainz_id="tester2")
+        self.assertEqual(user['email'], "foo@foo.com")
         self.assertEqual(type(user['id']), UUID)
         self.assertEqual(user['is_blocked'], False)
 
