@@ -88,8 +88,7 @@ def entity(id, rev=None):
 
     user_all_reviews, review_count = Review.list(user_id=review.user_id)
     user_all_reviews.remove(review)
-    # other_reviews = user_all_reviews[:3]
-    other_reviews = user_all_reviews
+    other_reviews = user_all_reviews[:3]
     return render_template('review/entity/%s.html' % review.entity_type, review=review, spotify_mappings=spotify_mappings, soundcloud_url=soundcloud_url, vote=vote, other_reviews=other_reviews)
 
 
