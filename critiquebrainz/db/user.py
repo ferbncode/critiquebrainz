@@ -20,9 +20,9 @@ class User(AdminMixin, DeleteMixin):
     def avatar(self):
         """Link to user's avatar image."""
         if self.show_gravatar and self.email:
-            return "https://gravatar.com/avatar/" + hashlib.md5(self.mail.encode("utf-8")).hexdigest() + "?d=identicon&r=pg"
+            return db_users.gravatar_url(self.mail)
         else:
-            return "https://gravatar.com/avatar/" + hashlib.md5(self.id.encode("utf-8")).hexdigest() + "?d=identicon"
+            return db_users.gravatar_url(self.id)
 
     @property
     def is_vote_limit_exceeded(self):

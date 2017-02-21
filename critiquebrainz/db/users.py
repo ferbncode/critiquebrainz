@@ -109,13 +109,14 @@ def get_by_id(user_id):
             "user_id": user_id
         })
         row = result.fetchone()
-        if row:
-            row = dict(row)
-            row['musicbrainz_username'] = row.pop('musicbrainz_id')
-    return row if row else None
+        if not row:
+            return None
+        row = dict(row)
+        row['musicbrainz_username'] = row.pop('musicbrainz_id')
+    return row
 
 
-def create(display_name, **kwargs):
+def create(**user_data):
     """Create user using the given details.
 
     Args:
@@ -137,12 +138,13 @@ def create(display_name, **kwargs):
             "is_blocked": (bool)
         }
     """
-    musicbrainz_username = kwargs.pop('musicbrainz_username', None)
-    email = kwargs.pop('email', None)
-    show_gravatar = kwargs.pop('show_gravatar', False)
-    is_blocked = kwargs.pop('is_blocked', False)
+    display_name = user_data.pop('display_name')
+    musicbrainz_username = user_data.pop('musicbrainz_username', None)
+    email = user_data.pop('email', None)
+    show_gravatar = user_data.pop('show_gravatar', False)
+    is_blocked = user_data.pop('is_blocked', False)
     if kwargs:
-        raise TypeError('Unexpected **kwargs: %r' % kwargs)
+        raise TypeError('Unexpected **user_data: %r' % user_data)
 
     with db.engine.connect() as connection:
         result = connection.execute(sqlalchemy.text("""
@@ -159,8 +161,7 @@ def create(display_name, **kwargs):
                 "is_blocked": is_blocked,
             })
         new_id = result.fetchone()[0]
-        user = get_by_id(new_id)
-    return user
+    return get_by_id(new_id)
 
 
 def get_by_mbid(musicbrainz_username):
@@ -196,10 +197,11 @@ def get_by_mbid(musicbrainz_username):
             "musicbrainz_username": musicbrainz_username
         })
         row = result.fetchone()
-        if row:
-            row = dict(row)
-            row['musicbrainz_username'] = row.pop('musicbrainz_id')
-    return row if row else None
+        if not row:
+            return None
+        row = dict(row)
+        row['musicbrainz_username'] = row.pop('musicbrainz_id')
+    return row
 
 
 def get_or_create(musicbrainz_username, new_user_data):
@@ -246,8 +248,7 @@ def total_count():
             SELECT count(*)
               FROM "user"
         """))
-        count = result.fetchone()[0]
-    return count
+    return result.fetchone()[0]
 
 
 def list_users(limit=None, offset=0):
@@ -325,7 +326,7 @@ def block(user_id):
 
 
 def has_voted(user_id, review_id):
-    """Check if a user has already voted a review.
+    """Check if a user has already voted on the last revision of a review.
 
     Args:
         user_id(uuid): ID of the user.
@@ -356,7 +357,7 @@ def karma(user_id):
         user_id(uuid): ID of the user.
 
     Returns:
-        karma(int): the karma of the user.
+        karma_value(int): the karma of the user.
     """
     with db.engine.connect() as connection:
         result = connection.execute(sqlalchemy.text("""
@@ -374,13 +375,13 @@ def karma(user_id):
         })
 
         rows = result.fetchall()
-        _karma = 0
+        karma_value = 0
         for row in rows:
             if row.vote == True:
-                _karma += 1
+                karma_value += 1
             else:
-                _karma -= 1
-    return _karma
+                karma_value -= 1
+    return karma_value
 
 
 def reviews(user_id):
@@ -423,9 +424,7 @@ def reviews(user_id):
         })
 
         rows = result.fetchall()
-        rows = [dict(row) for row in rows]
-
-    return rows
+    return [dict(row) for row in rows]
 
 
 def get_votes_since(user_id, date='1-1-1970'):
@@ -433,7 +432,7 @@ def get_votes_since(user_id, date='1-1-1970'):
 
     Args:
         user_id(uuid): ID of the user.
-        date(datetime): Date from which votes submitted(default: UTC).
+        date(datetime): Date from which votes submitted.
 
     Returns:
         List of votes submitted by the user from the time specified
@@ -455,17 +454,15 @@ def get_votes_since(user_id, date='1-1-1970'):
         })
 
         rows = result.fetchall()
-        rows = [dict(row) for row in rows]
-
-    return rows
+    return [dict(row) for row in rows]
 
 
-def get_reviews_since(user_id, date='1-1-1970'):
+def get_reviews_since(user_id, from_date='1-1-1970'):
     """Get reviews by a user from a specified time.
 
     Args:
         user_id(uuid): ID of the user.
-        date(datetime): Date from which reviews submitted(default: UTC).
+        from_date(datetime): Date from which reviews submitted are to be returned.
 
     Returns:
         List of reviews by the user from the time specified
@@ -503,26 +500,22 @@ def get_reviews_since(user_id, date='1-1-1970'):
                   GROUP BY review_id) AS review_create
                 ON review.id = review_id
              WHERE user_id = :user_id
-               AND creation_time > :date
+               AND creation_time > :from_date
         """), {
             "user_id": user_id,
-            "date": date
+            "from_date": from_date
         })
 
         rows = result.fetchall()
-        rows = [dict(row) for row in rows]
-
-    return rows
+    return [dict(row) for row in rows]
 
 
-def update(user, display_name=None, email=None, show_gravatar=None):
+def update(user_id, user_new_info):
     """Update info of a user.
 
     Args:
-        user: User object whose info is to be updated.
-        display_name(str): Display name of user.
-        email(str): Email of the user.
-        show_gravatar(bool): whether to show gravatar.
+        user_id: ID of user whose info is to be updated.
+        user_new_info: Dictionary containing the new information for the user.
     """
     if display_name is None:
         display_name = user.display_name
@@ -597,8 +590,7 @@ def clients(user_id):
         })
 
         rows = result.fetchall()
-        rows = [dict(row) for row in rows]
-    return rows
+    return [dict(row) for row in rows]
 
 
 def tokens(user_id):
@@ -611,11 +603,11 @@ def tokens(user_id):
         List of dictionaries of client tokens of the user
         {
             "id": (int),
-            "client_id": (Unicode),
-            "access_token": (Unicode),
-            "refresh_token": (Unicode),
+            "client_id": (str),
+            "access_token": (str),
+            "refresh_token": (str),
             "expires": (datetime),
-            "scopes": (Unicode)
+            "scopes": (str)
         }
     """
     with db.engine.connect() as connection:
@@ -633,5 +625,4 @@ def tokens(user_id):
         })
 
         rows = result.fetchall()
-        rows = [dict(row) for row in rows]
-    return rows
+    return [dict(row) for row in rows]
