@@ -52,6 +52,10 @@ def create_app(debug=None, config_path=None):
 
     add_robots(app)
 
+    #MB_Database
+    from critiquebrainz.mb_db import init_db_engine
+    init_db_engine(app.config.get("MB_DATABASE_URI"))
+
     # Redis (cache)
     from brainzutils import cache
     if "REDIS_HOST" in app.config and \
