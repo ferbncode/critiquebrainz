@@ -1,5 +1,4 @@
 from critiquebrainz import mb_db
-from mb_db import db_exceptions
 import sys
 import sqlalchemy
 from brainzutils import cache
