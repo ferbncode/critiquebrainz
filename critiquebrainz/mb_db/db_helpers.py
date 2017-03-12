@@ -10,15 +10,19 @@ def get_tags(id, entity_type, relation, colname):
 
     ## Example function for get_tags. Many entities may
     ## require tags.
-    query = "SELECT tag.name" + "FROM" + relation + "INNER JOIN tag"+\
-            "ON" + relation +".tag = tag.id" +\
-            "INNER JOIN" + entity_type +\
-            "ON" + entity_type + ".id =" + relation + "." + colname +\
-            "WHERE" + entity_type + ".gid = :id"
+    query = """SELECT tag.name
+                 FROM {}
+           INNER JOIN tag
+                   ON {}.tag = tag.id
+           INNER JOIN {}
+                   ON {}.id = {}.{}
+                WHERE {}.gid = :id
+            """.format(relation, relation, entity_type,
+                    entity_type, relation, colname, entity_type)
     query = sqlalchemy.text(query)
 
     with mb_db.mb_engine.connect() as connection:
-        result = connection.execute(query, {"id": id})
+        results = connection.execute(query, {"id": id})
         tags = results.fetchall()
     tags_all = []
     if tags:
