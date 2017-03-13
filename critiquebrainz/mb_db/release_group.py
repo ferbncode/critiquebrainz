@@ -17,15 +17,22 @@ def get_release_group_by_id(id, relations=[]):
                 SELECT rg.id,
                        rg.name,
                        rg.artist_credit,
-                       ty.name AS type
-                       artist.name,
-                       artist.gid as artist_id
+                       ty.name AS type,
+                       artist_credit.artist_count,
+                       artist_credit.name,
+                       array_agg(acn.name) as artist_names,
+                       array_agg(artist.gid) as artist_gids
                   FROM release_group AS rg
-                  JOIN release_group_primary_type AS ty
+             LEFT JOIN release_group_primary_type AS ty
                     ON rg.type = ty.id
+                  JOIN artist_credit
+                    ON rg.artist_credit = artist_credit.id
+                  JOIN artist_credit_name acn
+                    ON acn.artist_credit = artist_credit.id
                   JOIN artist
-                    ON rg.artist_credit = artist.id
+                    ON acn.artist = artist.id
                  WHERE rg.gid = :release_group_id
+              GROUP BY rg.id, ty.id, artist_credit.id
             """),{
                 "release_group_id": id,
             })
