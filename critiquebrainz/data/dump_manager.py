@@ -243,6 +243,140 @@ def public(location, rotate=False):
 
     print("Done!")
 
+@cli.command(name="import_mb_topo")
+@click.argument("mb_archive", type=click.Path(exists=True), required=True)
+@click.argument("tempdir", type=click.Path(exists=True), required=True)
+@with_request_context
+def mb_importer_topo(mb_archive, tempdir):
+    """Imports MusicBrainz database dump(archive) to the empty database."""
+
+    # TODO(ferbncode):
+    # 1. TIMESTAMP check
+    # 2. SCHEMA SEQUENCE check
+    # 3. Check if table is already populated
+    # 4. Check for md5sums of the dumps.
+    # 5. Check for the disk space on host device.
+    run_dir = os.getcwd()
+    archive_name = os.path.basename(mb_archive)[:-8]
+    db_hostname, db_port, db_name, db_username, db_password = explode_db_uri(current_app.config['MB_DATABASE_URI'])
+
+    # extract files
+    with tarfile.open(mb_archive, 'r:bz2') as archive:
+        archive.extractall(tempdir)
+
+    # Importing data
+    os.chdir(os.path.join(tempdir, archive_name))
+
+    filenames = os.listdir('.')
+    while filenames:
+        pending_filenames = []
+        for filename in filenames:
+            print("Importing data for {} table".format(filename))
+            print("psql -h {} -p {} -U {} -d {} -a -c COPY {} FROM '{}'"
+                    .format(db_hostname, db_port, db_username, db_name, filename, filename))
+            result = subprocess.call(
+                """psql -h {} -p {} -U {} -d {} -a -c "\COPY {} FROM '{}'" """
+                .format(db_hostname, db_port, db_username, db_name, filename, filename),
+                shell=True
+            )
+            if result != 0:
+                print("Failed for table {}".format(filename))
+                print("Putting file into pending files")
+                pending_filenames.append(filename)
+            elif result == 0:
+                print("Imported data for table {}".format(filename))
+        filenames = pending_filenames
+
+    print("Removing extracted files from tempdir")
+    os.chdir(run_dir)
+    os.rmdir(os.path.join(tempdir, archive_name))
+    print("Done!")
+
+@cli.command(name="import_mb_trigger")
+@click.argument("mb_archive", type=click.Path(exists=True), required=True)
+@click.argument("tempdir", type=click.Path(exists=True), required=True)
+@with_request_context
+def mb_importer_trigger(mb_archive, tempdir):
+    """Imports MusicBrainz database dump(archive) to the empty database by first disabling FK contraints check"""
+
+    # TODO(ferbncode):
+    # 1. TIMESTAMP check
+    # 2. SCHEMA SEQUENCE check
+    # 3. Check if table is already populated
+    # 4. Check for md5sums of the dumps.
+    # 5. Check for the disk space on host device.
+
+    run_dir = os.getcwd()
+    archive_name = os.path.basename(mb_archive)[:-8]
+    db_hostname, db_port, db_name, db_username, db_password = explode_db_uri(current_app.config['MB_DATABASE_URI'])
+    with tarfile.open(mb_archive, 'r:bz2') as archive:
+        archive.extractall(tempdir)
+    # Importing data
+    os.chdir(os.path.join(tempdir, archive_name))
+    filenames = os.listdir('.')
+
+    # Make musicbrainz superuser for disabling triggers
+    print("psql -h {} -p {} -c -U postgres -c 'ALTER USER musicbrainz WITH SUPERUSER'".format(db_hostname, db_port))
+    result = subprocess.call(
+        """psql -h {} -p {} -U postgres -c 'ALTER USER musicbrainz WITH SUPERUSER'""".format(db_hostname, db_port),
+        shell=True,
+    )
+    if result != 0:
+        raise Exception("Could not make him the superuser")
+
+    for filename in filenames:
+
+        # Disabling constraint checks for the table first by disabling triggers.
+        print("psql -h {} -p {} -U {} -d {} -c 'ALTER TABLE {} DISABLE TRIGGER ALL'"
+                .format(db_hostname, db_port, db_username, db_name, filename))
+        result = subprocess.call(
+            """psql -h {} -p {} -U {} -d {} -c 'ALTER TABLE {} DISABLE TRIGGER ALL'"""
+            .format(db_hostname, db_port, db_username, db_name, filename),
+            shell=True,
+        )
+        if result != 0:
+            raise Exception("Could not disable triggers, stopping")
+
+
+        # Importing data for the tables.
+        print("Importing data for {} table".format(filename))
+        print("psql -h {} -p {} -U {} -d {} -a -c COPY {} FROM '{}'"
+                .format(db_hostname, db_port, db_username, db_name, filename, filename))
+        result = subprocess.call(
+            """psql -h {} -p {} -U {} -d {} -a -c "\COPY {} FROM '{}'" """
+            .format(db_hostname, db_port, db_username, db_name, filename, filename),
+            shell=True,
+        )
+        if result != 0:
+            print("Failed for table {}".format(filename))
+        elif result == 0:
+            print("Imported data for table {}".format(filename))
+
+
+        # Enabling triggers back.
+        print("Enabling triggers back")
+        print("psql -h {} -p {} -U {} -d {} -c 'ALTER TABLE {} ENABLE TRIGGER ALL'"
+                .format(db_hostname, db_port, db_username, db_name, filename))
+        result = subprocess.call(
+            """psql -h {} -p {} -U {} -d {} -c 'ALTER TABLE {} ENABLE TRIGGER ALL'"""
+            .format(db_hostname, db_port, db_username, db_name, filename),
+            shell=True,
+        )
+        if result != 0:
+            raise Exception("Could not enable back triggers, stopping")
+
+    # Make musicbrainz non super user again.
+    result = subprocess.call(
+        """psql -h {} -p {} -U postgres -c 'ALTER USER musicbrainz WITH NOSUPERUSER'"""
+        .format(db_hostname, db_port),
+        shell=True,
+    )
+    if result != 0:
+        raise Exception("Could not make nonsuperuser")
+    print("Removing extracted files from tempdir")
+    os.chdir(run_dir)
+    os.rmdir(os.path.join(tempdir, archive_name))
+    print("Done!")
 
 @cli.command(name="import")
 @click.argument("archive", type=click.Path(exists=True), required=True)
