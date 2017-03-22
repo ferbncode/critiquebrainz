@@ -27,7 +27,7 @@ def to_dict(review, confidential=False):
     review["id"] = str(review["id"])
     review["entity_id"] = str(review["entity_id"])
     review["last_updated"] = review["last_revision"]["timestamp"]
-    review['last_revision']['review_id'] = str(review['last_revision']['review_id'])
+    review["last_revision"]["review_id"] = str(review["last_revision"]["review_id"])
     return review
 
 
@@ -41,7 +41,7 @@ def get_by_id(review_id):
         {
             "id": uuid,
             "entity_id": uuid,
-            "entity_type": 'release_group', 'event', 'place',
+            "entity_type": str("release group", "event", "place"),
             "user_id": uuid,
             "user": dict,
             "edits": int,
@@ -54,34 +54,35 @@ def get_by_id(review_id):
             "last_revision: dict,
             "votes": dict,
             "rating": int,
-            "text": str, "created": datetime,
+            "text": str, 
+            "created": datetime,
             "license": dict,
         }
     """
     with db.engine.connect() as connection:
         result = connection.execute(sqlalchemy.text("""
             SELECT review.id AS id,
-                   entity_id,
-                   entity_type,
-                   user_id,
-                   edits,
-                   is_draft,
-                   is_hidden,
-                   license_id,
-                   language,
-                   source,
-                   source_url,
+                   review.entity_id,
+                   review.entity_type,
+                   review.user_id,
+                   review.edits,
+                   review.is_draft,
+                   review.is_hidden,
+                   review.license_id,
+                   review.language,
+                   review.source,
+                   review.source_url,
                    revision.id AS last_revision_id,
-                   timestamp,
-                   text,
-                   email,
+                   revision.timestamp,
+                   revision.text,
+                   "user".email,
                    "user".created as user_created,
-                   display_name,
-                   show_gravatar,
-                   musicbrainz_id,
-                   is_blocked,
+                   "user".display_name,
+                   "user".show_gravatar,
+                   "user".musicbrainz_id,
+                   "user".is_blocked,
                    created_time.created,
-                   license.full_name,
+                   license.license.full_name,
                    license.info_url
               FROM review
               JOIN revision
@@ -108,7 +109,7 @@ def get_by_id(review_id):
 
         review = result.fetchone()
         if not review:
-            raise db_exceptions.NoDataFoundException("No review found with review ID: {}".format(review_id))
+            raise db_exceptions.NoDataFoundException("Can't find review with ID: {id}".format(id=review_id))
 
         review = dict(review)
         review["last_revision"] = {
@@ -393,76 +394,61 @@ def list_reviews(**kwargs):
     # Note that all revisions' votes are considered in these ratings
     query = sqlalchemy.text("""
         SELECT review.id,
-               entity_id,
-               entity_type,
-               edits,
-               is_draft,
-               is_hidden,
-               license_id,
-               language,
+               review.entity_id,
+               review.entity_type,
+               review.edits,
+               review.is_draft,
+               review.is_hidden,
+               review.license_id,
+               review.language,
+               review.source,
+               review.source_url,
                review.user_id,
-               display_name,
-               show_gravatar,
-               is_blocked,
-               email,
+               "user".display_name,
+               "user".show_gravatar,
+               "user".is_blocked,
+               "user".email,
                "user".created as user_created,
-               musicbrainz_id,
+               "user".musicbrainz_id,
                MIN(revision.timestamp) as created,
                SUM(
-                CASE
-                 WHEN vote='t' THEN 1
-                 ELSE 0
-                END
+                   CASE WHEN vote='t' THEN 1 ELSE 0 END
                ) AS votes_positive_count,
                SUM(
-                CASE
-                 WHEN vote='f' THEN 1
-                 ELSE 0
-                END
+                   CASE WHEN vote='f' THEN 1 ELSE 0 END
                ) AS votes_negative_count,
                SUM(
-                CASE
-                 WHEN vote = 't' THEN 1
-                 WHEN vote = 'f' THEN -1
-                 WHEN vote IS NULL THEN 0
-                END
+                   CASE WHEN vote = 't' THEN 1 
+                   WHEN vote = 'f' THEN -1 WHEN vote IS NULL THEN 0 END
                ) AS rating,
                latest_revision.id as latest_revision_id,
                latest_revision.timestamp as latest_revision_timestamp,
                latest_revision.text as text,
-               source,
-               source_url,
                license.full_name,
                license.info_url
           FROM review
-          JOIN revision
-            ON review.id = revision.review_id
-     LEFT JOIN vote
-            ON vote.revision_id = revision.id
-          JOIN "user"
-            ON review.user_id = "user".id
-          JOIN license
-            ON license.id = license_id
+          JOIN revision ON review.id = revision.review_id
+     LEFT JOIN vote ON vote.revision_id = revision.id
+          JOIN "user" ON review.user_id = "user".id
+          JOIN license ON license.id = license_id
           JOIN (
-                revision
-                JOIN (
-                  SELECT review.id AS review_uuid,
-                         MAX(timestamp) AS latest_timestamp
-                    FROM review
-                    JOIN revision
-                      ON review.id = review_id
-                GROUP BY review.id
-                     ) AS latest
-                  ON latest.review_uuid = revision.review_id
-                 AND latest.latest_timestamp = revision.timestamp
-               ) AS latest_revision
-            ON review.id = latest_revision.review_id
-            {}
+            revision
+              JOIN (
+            SELECT review.id AS review_uuid,
+                   MAX(timestamp) AS latest_timestamp
+              FROM review
+              JOIN revision ON review.id = review_id
+          GROUP BY review.id
+                   ) AS latest
+                ON latest.review_uuid = revision.review_id
+               AND latest.latest_timestamp = revision.timestamp
+               ) AS latest_revision ON review.id = latest_revision.review_id
+        {where_clause}
       GROUP BY review.id, latest_revision.id, "user".id, license.id
-            {}
+     {order_by_clause}
          LIMIT :limit
         OFFSET :offset
-        """.format(filterstr, order_by_clause))
+        """.format(where_clause=filterstr, order_by_clause=order_by_clause))
 
     filter_data["limit"] = kwargs.pop("limit", None)
     filter_data["offset"] = kwargs.pop("offset", None)
@@ -519,47 +505,42 @@ def get_popular(limit=None):
         with db.engine.connect() as connection:
             results = connection.execute(sqlalchemy.text("""
                 SELECT review.id,
-                       entity_id,
-                       entity_type,
+                       review.entity_id,
+                       review.entity_type,
                        review.user_id,
-                       edits,
-                       is_draft,
-                       is_hidden,
-                       license_id,
-                       language,
-                       source,
-                       source_url,
+                       review.edits,
+                       review.is_draft,
+                       review.is_hidden,
+                       review.license_id,
+                       review.language,
+                       review.source,
+                       review.source_url,
                        SUM(
-                        CASE
-                          WHEN vote = 't' THEN 1
-                          WHEN vote = 'f' THEN -1
-                          WHEN vote IS NULL THEN 0
-                        END
+                           CASE WHEN vote = 't' THEN 1
+                                WHEN vote = 'f' THEN -1
+                                WHEN vote IS NULL THEN 0 END
                        ) AS rating,
                        latest_revision.id AS latest_revision_id,
                        latest_revision.timestamp AS latest_revision_timestamp,
                        latest_revision.text AS text
                       FROM review
-                  JOIN revision
-                    ON revision.review_id = review.id
-             LEFT JOIN vote
-                    ON vote.revision_id = revision.id
+                  JOIN revision ON revision.review_id = review.id
+             LEFT JOIN vote ON vote.revision_id = revision.id
                   JOIN (
-                        revision
-                        JOIN (
-                          SELECT review.id AS review_uuid,
-                                 MAX(timestamp) AS latest_timestamp
-                            FROM review
-                            JOIN revision
-                              ON review.id = review_id
-                        GROUP BY review.id
-                             ) AS latest
-                          ON latest.review_uuid = revision.review_id
-                         AND latest.latest_timestamp = revision.timestamp
+                      revision
+                      JOIN (
+                    SELECT review.id AS review_uuid,
+                           MAX(timestamp) AS latest_timestamp
+                      FROM review
+                      JOIN revision ON review.id = review_id
+                  GROUP BY review.id
+                           ) AS latest
+                        ON latest.review_uuid = revision.review_id
+                       AND latest.latest_timestamp = revision.timestamp
                        ) AS latest_revision
                     ON review.id = latest_revision.review_id
-                 WHERE entity_id
-                    IN (
+                     WHERE entity_id
+                        IN (
                           SELECT
                         DISTINCT entity_id
                             FROM (
@@ -567,7 +548,7 @@ def get_popular(limit=None):
                             FROM review
                         ORDER BY RANDOM()
                         ) AS randomized_entity_ids
-                       )
+                     )
               GROUP BY review.id, latest_revision.id
               ORDER BY rating
                  LIMIT :limit
