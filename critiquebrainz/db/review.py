@@ -251,17 +251,19 @@ def update(review_id, drafted, **kwargs):
     return review
 
 
-def create(**kwargs):
-    if 'release_group' in kwargs:
-       entity_id = kwargs.pop('release_group')
+def create(*, release_group=None, entity_id=None,
+		   entity_type=None, user_id, is_draft, text,
+		   language=DEFAULT_LANG, license_id=DEFAULT_LICENSE_ID,
+		   source=None, source_url=None):
+    if release_group:
+       entity_id = release_group
        entity_type = 'release_group'
     else:
-        entity_id = kwargs.pop('entity_id')
-        entity_type = kwargs.pop('entity_type')
+		if not entity_type or not entity_id:
+			raise TypeError("Entity Type or ID not defined")
 
     with db.engine.connect() as connection:
         result = connection.execute(sqlalchemy.text("""
-            BEGIN;
             INSERT INTO review
             VALUES (:id, :entity_id, :entity_type, :user_id, :edits, :is_draft,
             :is_hidden, :license_id, :language, :source, :source_url)
@@ -270,31 +272,26 @@ def create(**kwargs):
            "id": str(uuid.uuid4()),
            "entity_id": entity_id,
            "entity_type": entity_type,
-           "user_id": kwargs.pop("user_id"),
+           "user_id": user_id,
            "edits": 0,
-           "is_draft": kwargs.pop("is_draft", False),
+           "is_draft": is_draft,
            "is_hidden": False,
-           "language": kwargs.pop("language", DEFAULT_LANG),
-           "license_id": kwargs.pop("license_id", DEFAULT_LICENSE_ID),
-           "source": kwargs.pop("source", None),
-           "source_url": kwargs.pop("source_url", None),
+           "language": language,
+           "license_id": license_id,
+           "source": source,
+           "source_url": source_url,
         })
-        text = kwargs.pop("text")
-        if kwargs:
-            connection.execute(sqlalchemy.text("""
-                ROLLBACK;
-            """))
-            raise TypeError("Unexpected **kwargs: %r" % kwargs)
-        connection.execute(sqlalchemy.text("""
-            COMMIT;
-        """))
+
         review_id = result.fetchone()[0]
         review_revision = db_revision.create(review_id, text)
         cache.invalidate_namespace(REVIEW_CACHE_NAMESPACE)
     return get_by_id(review_id)
 
 
-def list_reviews(**kwargs):
+def list_reviews(*, inc_drafts=False, inc_hidden=False, entity_id=None,
+				 entity_type=None, license_id=None, user_id=None, 
+				 language=None, exclude=None, sort=None, limit=None,
+				 offset=None):
     """Get a list of reviews.
 
     This method provides several filters that can be used to select
@@ -322,43 +319,35 @@ def list_reviews(**kwargs):
     """
     filters = []
     filter_data = {}
-    inc_drafts = kwargs.pop('inc_drafts', None)
     if not inc_drafts:
         filters.append("is_draft = :is_draft")
         filter_data["is_draft"] = False
 
-    inc_hidden = kwargs.pop('inc_hidden', None)
     if not inc_hidden:
         filters.append("is_hidden = :is_hidden")
         filter_data["is_hidden"] = False
 
     # FILTERING
-    entity_id = kwargs.pop('entity_id', None)
     if entity_id is not None:
         filters.append("entity_id = :entity_id")
         filter_data["entity_id"] = entity_id
 
-    entity_type = kwargs.pop('entity_type', None)
     if entity_type is not None:
         filters.append("entity_type = :entity_type")
         filter_data["entity_type"] = entity_type
 
-    license_id = kwargs.pop('license_id', None)
     if license_id is not None:
         filters.append("license_id = :license_id")
         filter_data["license_id"] = license_id
 
-    user_id = kwargs.pop('user_id', None)
     if user_id is not None:
         filters.append("review.user_id = :user_id")
         filter_data["user_id"] = user_id
 
-    exclude = kwargs.pop('exclude', None)
     if exclude is not None:
         filters.append("review.id NOT IN :exclude")
         filter_data["exclude"] = tuple(exclude)
 
-    language = kwargs.pop('language', None)
     if language is not None:
         filters.append("language = :language")
         filter_data["language"] = language
@@ -376,7 +365,6 @@ def list_reviews(**kwargs):
     with db.engine.connect() as connection:
         result = connection.execute(query, filter_data)
         count = result.fetchone()[0]
-    sort = kwargs.pop("sort", None)
     order_by_clause = str()
 
     if sort == 'rating':
@@ -449,12 +437,6 @@ def list_reviews(**kwargs):
          LIMIT :limit
         OFFSET :offset
         """.format(where_clause=filterstr, order_by_clause=order_by_clause))
-
-    filter_data["limit"] = kwargs.pop("limit", None)
-    filter_data["offset"] = kwargs.pop("offset", None)
-
-    if kwargs:
-        raise TypeError('Unexpected **kwargs: %r' % kwargs)
 
     with db.engine.connect() as connection:
         results = connection.execute(query, filter_data)
