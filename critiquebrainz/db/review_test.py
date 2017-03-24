@@ -181,7 +181,7 @@ class ReviewTestCase(DataTestCase):
         reviews = db_review.get_popular()
         self.assertEqual(len(reviews), 1)
 
-    def test_hide_and_unhide(self):
+    def test_set_hidden_state(self):
         review = db_review.create(
             user_id=self.user.id,
             entity_id="e7aad618-fa86-3983-9e77-405e21796eca",
@@ -190,10 +190,10 @@ class ReviewTestCase(DataTestCase):
             is_draft=False,
             license_id=self.license.id,
         )
-        db_review.hide(review["id"])
+        db_review.set_hidden_state(review["id"], is_hidden="True")
         review = db_review.get_by_id(review["id"])
         self.assertEqual(review["is_hidden"], True)
-        db_review.unhide(review["id"])
+        db_review.set_hidden_state(review["id"], is_hidden="False")
         review = db_review.get_by_id(review["id"])
         self.assertEqual(review["is_hidden"], False)
 

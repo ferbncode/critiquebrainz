@@ -366,7 +366,7 @@ def hide(id):
 
     form = AdminActionForm()
     if form.validate_on_submit():
-        db_review.hide(review["id"])
+        db_review.set_hidden_state(review["id"], is_hidden="True")
         ModerationLog.create(admin_id=current_user.id, action=ACTION_HIDE_REVIEW,
                              reason=form.reason.data, review_id=review["id"])
         review_reports, count = db_spam_report.list_reports(review_id=review["id"])
@@ -383,6 +383,6 @@ def hide(id):
 @admin_view
 def unhide(id):
     review = db_review.get_or_404(id)
-    db_review.unhide(review["id"])
+    db_review.set_hidden_state(review["id"], is_hidden="False")
     flash.success(gettext("Review is not hidden anymore."))
     return redirect(request.referrer or url_for('user.reviews', user_id=current_user.id))
