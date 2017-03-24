@@ -24,7 +24,8 @@ class ReviewTestCase(DataTestCase):
     def test_review_creation(self):
         review = db_review.create(
            user_id=self.user.id,
-           release_group="e7aad618-fa86-3983-9e77-405e21796eca",
+           entity_id="e7aad618-fa86-3983-9e77-405e21796eca",
+           entity_type="release_group",
            text="Testing",
            is_draft=False,
            license_id=self.license.id,
@@ -38,7 +39,8 @@ class ReviewTestCase(DataTestCase):
     def test_review_deletion(self):
         review = db_review.create(
             user_id=self.user.id,
-            release_group="e7aad618-fa86-3983-9e77-405e21796eca",
+            entity_id="e7aad618-fa86-3983-9e77-405e21796eca",
+            entity_type="release_group",
             text="Testing",
             is_draft=False,
             license_id=self.license.id,
@@ -50,7 +52,8 @@ class ReviewTestCase(DataTestCase):
     def test_languages(self):
         review_en = db_review.create(
             user_id=self.user.id,
-            release_group="e7aad618-fa86-3983-9e77-405e21796ece",
+            entity_id="e7aad618-fa86-3983-9e77-405e21796ece",
+            entity_type="release_group",
             text="Testing",
             is_draft=False,
             license_id=self.license.id,
@@ -59,7 +62,8 @@ class ReviewTestCase(DataTestCase):
 
         review_de = db_review.create(
             user_id=self.user.id,
-            release_group="e7aad618-fa86-3983-9e77-405e21796eca",
+            entity_id="e7aad618-fa86-3983-9e77-405e21796eca",
+            entity_type="release_group",
             text="Testing",
             is_draft=False,
             license_id=self.license.id,
@@ -75,7 +79,8 @@ class ReviewTestCase(DataTestCase):
     def test_update(self):
         review = db_review.create(
             user_id=self.user.id,
-            release_group="e7aad618-fa86-3983-9e77-405e21796eca",
+            entity_id="e7aad618-fa86-3983-9e77-405e21796eca",
+            entity_type="release_group",
             text="Testing",
             is_draft=True,
             license_id=self.license.id,
@@ -83,7 +88,7 @@ class ReviewTestCase(DataTestCase):
         another_license = License(id="License-2", full_name="Another License")
         db.session.add(another_license)
         db.session.commit()
-        review = db_review.update(
+        db_review.update(
             review_id=review["id"],
             drafted=review["is_draft"],
             text="Bad update",
@@ -105,7 +110,7 @@ class ReviewTestCase(DataTestCase):
 
         # Checking things that shouldn't be allowed
         with self.assertRaises(BadRequest):
-            review = db_review.update(
+            db_review.update(
                 review_id=review["id"],
                 drafted=review["is_draft"],
                 text="Sucks!",
@@ -113,7 +118,7 @@ class ReviewTestCase(DataTestCase):
             )
 
         with self.assertRaises(BadRequest):
-            review = db_review.update(
+            db_review.update(
                 review_id=review["id"],
                 drafted=review["is_draft"],
                 text="Sucks!",
@@ -127,7 +132,8 @@ class ReviewTestCase(DataTestCase):
 
         review = db_review.create(
             user_id=self.user.id,
-            release_group="e7aad618-fa86-3983-9e77-405e21796eca",
+            entity_id="e7aad618-fa86-3983-9e77-405e21796eca",
+            entity_type="release_group",
             text="Awesome",
             is_draft=False,
             license_id=self.license.id,
@@ -137,7 +143,7 @@ class ReviewTestCase(DataTestCase):
         self.assertEqual(len(reviews), 1)
         self.assertEqual(reviews[0]["text"], "Awesome")
 
-        review = db_review.update(
+        db_review.update(
             review_id=review["id"],
             drafted=review["is_draft"],
             text="Beautiful!",
@@ -164,8 +170,9 @@ class ReviewTestCase(DataTestCase):
         self.assertEqual(len(reviews), 0)
 
         new_review = db_review.create(
+            entity_id="e7aad618-fa86-3983-9e77-405e21796eca",
+            entity_type="release_group",
             user_id=self.user.id,
-            release_group="e7aad618-fa86-3983-9e77-405e21796eca",
             text="Awesome",
             is_draft=False,
             license_id=self.license.id,
@@ -177,7 +184,8 @@ class ReviewTestCase(DataTestCase):
     def test_hide_and_unhide(self):
         review = db_review.create(
             user_id=self.user.id,
-            release_group="e7aad618-fa86-3983-9e77-405e21796eca",
+            entity_id="e7aad618-fa86-3983-9e77-405e21796eca",
+            entity_type="release_group",
             text="Awesome",
             is_draft=False,
             license_id=self.license.id,
@@ -194,7 +202,8 @@ class ReviewTestCase(DataTestCase):
         self.assertEqual(count, 0)
         review = db_review.create(
             user_id=self.user.id,
-            release_group="e7aad618-fa86-3983-9e77-405e21796eca",
+            entity_id="e7aad618-fa86-3983-9e77-405e21796eca",
+            entity_type="release_group",
             text="Awesome",
             is_draft=False,
             license_id=self.license.id,

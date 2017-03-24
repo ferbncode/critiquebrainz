@@ -243,12 +243,13 @@ def edit(id):
             license_choice = form.license_choice.data
         else:
             license_choice = None
-        review = db_review.update(
+        db_review.update(
             review_id=review["id"],
             drafted=review["is_draft"],
             text=form.text.data,
             is_draft=(form.state.data == 'draft'),
-            license_id=license_choice, language=form.language.data,
+            license_id=license_choice, 
+            language=form.language.data,
         )
         flash.success(gettext("Review has been updated."))
         return redirect(url_for('.entity', id=review["id"]))

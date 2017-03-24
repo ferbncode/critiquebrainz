@@ -20,7 +20,8 @@ class ReviewViewsTestCase(FrontendTestCase):
 
     def create_dummy_review(self, is_draft=False):
         review = db_review.create(
-            release_group="6b3cd75d-7453-39f3-86c4-1441f360e121",
+            entity_id="6b3cd75d-7453-39f3-86c4-1441f360e121",
+            entity_type="release_group",
             user_id=self.user.id,
             text=self.review_text,
             is_draft=is_draft,
@@ -49,7 +50,8 @@ class ReviewViewsTestCase(FrontendTestCase):
 
     def test_create(self):
         data = dict(
-            release_group="6b3cd75d-7453-39f3-86c4-1441f360e121",
+            entity_id="6b3cd75d-7453-39f3-86c4-1441f360e121",
+            entity_type="release_group",
             state='draft',
             text=self.review_text,
             license_choice=self.license.id,
@@ -66,7 +68,8 @@ class ReviewViewsTestCase(FrontendTestCase):
     def test_edit(self):
         updated_text = "The text has now been updated"
         data = dict(
-            release_group="6b3cd75d-7453-39f3-86c4-1441f360e121",
+            entity_id="6b3cd75d-7453-39f3-86c4-1441f360e121",
+            entity_type="release_group",
             state='publish',
             text=updated_text,
             license_choice=self.license.id,
