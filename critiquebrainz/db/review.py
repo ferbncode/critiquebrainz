@@ -150,7 +150,7 @@ def get_by_id(review_id):
     return review
 
 
-def set_hidden_state(review_id, is_hidden)
+def set_hidden_state(review_id, *, is_hidden)
     """Hide or unhide a review with a given ID.
 
     Args:
