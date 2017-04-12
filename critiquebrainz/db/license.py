@@ -29,3 +29,19 @@ def create(*, id, full_name, info_url=None):
                  VALUES (:id, :full_name, :info_url)
         """), license)
     return license
+
+
+def delete(*, id):
+    """Delete a license.
+
+    Args:
+        id (str): ID of the license.
+    """
+    with db.engine.connect() as connection:
+        connection.execute(sqlalchemy.text("""
+            DELETE 
+              FROM license
+             WHERE id = :id
+        """), {
+            "id": id,
+        })
