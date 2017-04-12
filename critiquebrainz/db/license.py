@@ -39,7 +39,7 @@ def delete(*, id):
     """
     with db.engine.connect() as connection:
         connection.execute(sqlalchemy.text("""
-            DELETE 
+            DELETE
               FROM license
              WHERE id = :id
         """), {

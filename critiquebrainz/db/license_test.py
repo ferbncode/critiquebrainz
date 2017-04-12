@@ -19,4 +19,4 @@ class LicenseTestCase(DataTestCase):
             full_name="Test license",
             info_url="www.example.com",
         )
-        license.delete(id=license["id"])
+        db_license.delete(id=license["id"])
