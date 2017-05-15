@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify
-from critiquebrainz.data.model.review import Review, supported_languages, ENTITY_TYPES
-from critiquebrainz.data.model.vote import Vote
+from critiquebrainz.db.review import supported_languages, ENTITY_TYPES
+import critiquebrainz.db.review as db_review
 from critiquebrainz.db import vote as db_vote, exceptions as db_exceptions
 from critiquebrainz.ws.exceptions import NotFound, AccessDenied, InvalidRequest, LimitExceeded
 from critiquebrainz.ws.oauth import oauth
@@ -13,6 +13,16 @@ review_bp = Blueprint('ws_review', __name__)
 
 REVIEW_MAX_LENGTH = 100000
 REVIEW_MIN_LENGTH = 25
+REVIEW_CACHE_NAMESPACE = "Review"
+
+
+def get_review_or_404(review_id):
+    """Get a review using review ID or abort with error 404."""
+    try:
+        review = db_review.get_by_id(review_id)
+    except db_exceptions.NoDataFoundException:
+        abort(404)
+    return review
 
 
 @review_bp.route('/<uuid:review_id>', methods=['GET'])
@@ -66,8 +76,8 @@ def review_entity_handler(review_id):
 
     :resheader Content-Type: *application/json*
     """
-    review = Review.query.get_or_404(str(review_id))
-    if review.is_hidden:
+    review = get_review_or_404(str(review_id))
+    if review["is_hidden"]:
         raise NotFound("Review has been hidden.")
     return jsonify(review=review.to_dict())
 
@@ -106,8 +116,8 @@ def review_revisions_handler(review_id):
 
     :resheader Content-Type: *application/json*
     """
-    review = Review.query.get_or_404(str(review_id))
-    if review.is_hidden:
+    review = get_review_or_404(str(review_id))
+    if review["is_hidden"]:
         raise NotFound("Review has been hidden.")
     revisions = []
     for i, r in enumerate(review.revisions):
@@ -149,11 +159,11 @@ def review_revision_entity_handler(review_id, rev):
 
     :resheader Content-Type: *application/json*
     """
-    review = Review.query.get_or_404(str(review_id))
+    review = get_review_or_404(str(review_id))
     if review.is_hidden:
         raise NotFound("Review has been hidden.")
 
-    count = len(review.revisions)
+    count = db_revision.get_count(review["id"])
     if rev > count:
         raise NotFound("Can't find the revision you are looking for.")
 
@@ -192,12 +202,12 @@ def review_delete_handler(review_id, user):
 
     :resheader Content-Type: *application/json*
     """
-    review = Review.query.get_or_404(str(review_id))
-    if review.is_hidden:
+    review = get_review_or_404(str(review_id))
+    if review["is_hidden"]:
         raise NotFound("Review has been hidden.")
-    if review.user_id != user.id:
+    if review["user_id"] != user.id:
         raise AccessDenied
-    review.delete()
+    db_review.delete(review_id)
     return jsonify(message='Request processed successfully')
 
 
@@ -220,13 +230,17 @@ def review_modify_handler(review_id, user):
         text = Parser.string('json', 'text', min=REVIEW_MIN_LENGTH, max=REVIEW_MAX_LENGTH)
         return text
 
-    review = Review.query.get_or_404(str(review_id))
-    if review.is_hidden:
+    review = get_review_or_404(str(review_id))
+    if review["is_hidden"]:
         raise NotFound("Review has been hidden.")
-    if review.user_id != user.id:
+    if review["user_id"] != user.id:
         raise AccessDenied
     text = fetch_params()
-    review.update(text=text)
+    db_review.update(
+        review_id=review_id,
+        drafted=review["is_draft"],
+        text=text,
+    )
     return jsonify(message='Request processed successfully',
                    review=dict(id=review.id))
 
@@ -312,13 +326,13 @@ def review_list_handler():
     # TODO(roman): Ideally caching logic should live inside the model. Otherwise it
     # becomes hard to track all this stuff.
     cache_key = cache.gen_key('list', entity_id, user_id, sort, limit, offset, language)
-    cached_result = cache.get(cache_key, Review.CACHE_NAMESPACE)
+    cached_result = cache.get(cache_key, REVIEW_CACHE_NAMESPACE)
     if cached_result:
         reviews = cached_result['reviews']
         count = cached_result['count']
 
     else:
-        reviews, count = Review.list(
+        reviews, count = db_review.list_reviews(
             entity_id=entity_id,
             entity_type=entity_type,
             user_id=user_id,
@@ -327,11 +341,11 @@ def review_list_handler():
             offset=offset,
             language=language,
         )
-        reviews = [p.to_dict() for p in reviews]
+        reviews = [db_review.to_dict(p) for p in reviews]
         cache.set(cache_key, {
             'reviews': reviews,
             'count': count,
-        }, namespace=Review.CACHE_NAMESPACE)
+        }, namespace=REVIEW_CACHE_NAMESPACE)
 
     return jsonify(limit=limit, offset=offset, count=count, reviews=reviews)
 
@@ -374,9 +388,16 @@ def review_post_handler(user):
     if user.is_review_limit_exceeded:
         raise LimitExceeded('You have exceeded your limit of reviews per day.')
     entity_id, entity_type, text, license_choice, language, is_draft = fetch_params()
-    review = Review.create(user_id=user.id, entity_id=entity_id, entity_type=entity_type, text=text,
-                           license_id=license_choice, language=language, is_draft=is_draft)
-    return jsonify(message='Request processed successfully', id=review.id)
+    review = db_review.create(
+        user_id=user.id,
+        entity_id=entity_id,
+        entity_type=entity_type,
+        text=text,
+        license_id=license_choice,
+        language=language,
+        is_draft=is_draft,
+    )
+    return jsonify(message='Request processed successfully', id=review["id"])
 
 
 @review_bp.route('/languages', methods=['GET'])
@@ -442,11 +463,11 @@ def review_vote_entity_handler(review_id, user):
 
     :resheader Content-Type: *application/json*
     """
-    review = Review.query.get_or_404(str(review_id))
-    if review.is_hidden:
+    review = get_review_or_404(str(review_id))
+    if review["is_hidden"]:
         raise NotFound("Review has been hidden.")
     try:
-        vote = db_vote.get(user_id=user.id, revision_id=review.last_revision.id)
+        vote = db_vote.get(user_id=user.id, revision_id=review["last_revision"]["id"])
     except db_exceptions.NoDataFoundException:
         raise NotFound("Can't find your vote for this review.")
     return jsonify(vote)
@@ -492,13 +513,13 @@ def review_vote_put_handler(review_id, user):
         vote = Parser.bool('json', 'vote')
         return vote
 
-    review = Review.query.get_or_404(str(review_id))
-    if review.is_hidden:
+    review = get_review_or_404(str(review_id))
+    if review["is_hidden"]:
         raise NotFound("Review has been hidden.")
     vote = fetch_params()
-    if review.user_id == user.id:
+    if review["user_id"] == user.id:
         raise InvalidRequest(desc='You cannot rate your own review.')
-    if user.is_vote_limit_exceeded is True and user.has_voted(review) is False:
+    if user.is_vote_limit_exceeded is True and db_users.has_voted(user_id, review_id) is False:
         raise LimitExceeded('You have exceeded your limit of votes per day.')
 
     db_vote.submit(
@@ -536,11 +557,11 @@ def review_vote_delete_handler(review_id, user):
 
     :resheader Content-Type: *application/json*
     """
-    review = Review.query.get_or_404(str(review_id))
-    if review.is_hidden:
+    review = get_review_or_404(str(review_id))
+    if review["is_hidden"]:
         raise NotFound("Review has been hidden.")
     try:
-        vote = db_vote.get(user_id=user.id, revision_id=review.last_revision.id)
+        vote = db_vote.get(user_id=user.id, revision_id=review["last_revision"]["id"])
     except db_exceptions.NoDataFoundException:
         raise InvalidRequest("Review is not rated yet.")
     db_vote.delete(user_id=vote["user_id"], revision_id=vote["revision_id"])
@@ -557,10 +578,10 @@ def review_spam_report_handler(review_id, user):
 
     :resheader Content-Type: *application/json*
     """
-    review = Review.query.get_or_404(str(review_id))
-    if review.is_hidden:
+    review = get_review_or_404(review_id)
+    if review["is_hidden"]:
         raise NotFound("Review has been hidden.")
-    if review.user_id == user.id:
+    if review["user_id"] == user.id:
         raise InvalidRequest('own')
-    db_spam_report.create(review.last_revision.id, user.id, "Spam")
+    db_spam_report.create(review["last_revision"]["id"], user.id, "Spam")
     return jsonify(message="Spam report created successfully")
