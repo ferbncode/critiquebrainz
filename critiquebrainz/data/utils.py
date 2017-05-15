@@ -19,6 +19,9 @@ def create_tables():
     db.run_sql_script(os.path.join(ADMIN_SQL_DIR, 'create_foreign_keys.sql'))
     db.run_sql_script(os.path.join(ADMIN_SQL_DIR, 'create_indexes.sql'))
 
+def drop_all():
+    db.run_sql_script(os.path.join(ADMIN_SQL_DIR, 'drop_all.sql'))
+
 
 def explode_db_uri(uri):
     """Extracts database connection info from the URI.

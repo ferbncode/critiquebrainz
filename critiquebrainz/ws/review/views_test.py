@@ -69,7 +69,7 @@ class ReviewViewsTestCase(WebServiceTestCase):
         resp = self.client.get('/review/').json
         self.assertEqual(resp['count'], 1)
         self.assertEqual(len(resp['reviews']), 1)
-        self.assertEqual(resp['reviews'][0]['id'], str(review["id"]))
+        self.assertEqual(resp['reviews'][0]['id'], str(review['id']))
         # TODO(roman): Completely verify output (I encountered unicode issues when tried to do that).
 
     def test_review_post(self):

@@ -9,7 +9,6 @@ from critiquebrainz.utils import generate_string
 import critiquebrainz.db.oauth_client as db_oauth_client
 import critiquebrainz.db.oauth_token as db_oauth_token
 import critiquebrainz.db.exceptions as db_exceptions
-# from critiquebrainz.data.model.user import User
 from critiquebrainz.db.user import User
 import critiquebrainz.db.users as db_users
 import critiquebrainz.db.oauth_grant as db_oauth_grant
