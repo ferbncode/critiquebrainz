@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify
 from critiquebrainz.db.review import supported_languages, ENTITY_TYPES
 import critiquebrainz.db.review as db_review
 from critiquebrainz.db import vote as db_vote, exceptions as db_exceptions
+from critiquebrainz.db import revision as db_revision, users as db_users
 from critiquebrainz.ws.exceptions import NotFound, AccessDenied, InvalidRequest, LimitExceeded
 from critiquebrainz.ws.oauth import oauth
 from critiquebrainz.ws.parser import Parser
@@ -76,10 +77,10 @@ def review_entity_handler(review_id):
 
     :resheader Content-Type: *application/json*
     """
-    review = get_review_or_404(str(review_id))
+    review = get_review_or_404(review_id)
     if review["is_hidden"]:
         raise NotFound("Review has been hidden.")
-    return jsonify(review=review.to_dict())
+    return jsonify(review=db_review.to_dict(review))
 
 
 @review_bp.route('/<uuid:review_id>/revisions', methods=['GET'])
@@ -116,14 +117,13 @@ def review_revisions_handler(review_id):
 
     :resheader Content-Type: *application/json*
     """
-    review = get_review_or_404(str(review_id))
+    review = get_review_or_404(review_id)
     if review["is_hidden"]:
         raise NotFound("Review has been hidden.")
-    revisions = []
-    for i, r in enumerate(review.revisions):
-        revision = r.to_dict()
-        revision.update(id=i+1)
-        revisions.append(revision)
+    revisions = db_revision.get(review_id, limit=None)
+    count = len(revisions)
+    for i, r in enumerate(revisions):
+        r.update(id=count-i)
     return jsonify(revisions=revisions)
 
 
@@ -159,15 +159,15 @@ def review_revision_entity_handler(review_id, rev):
 
     :resheader Content-Type: *application/json*
     """
-    review = get_review_or_404(str(review_id))
-    if review.is_hidden:
+    review = get_review_or_404(review_id)
+    if review["is_hidden"]:
         raise NotFound("Review has been hidden.")
 
     count = db_revision.get_count(review["id"])
     if rev > count:
         raise NotFound("Can't find the revision you are looking for.")
 
-    revision = review.revisions[rev-1].to_dict()
+    revision = db_revision.get(review_id, offset=count-rev)
     revision.update(id=rev)
     return jsonify(revision=revision)
 
@@ -202,10 +202,10 @@ def review_delete_handler(review_id, user):
 
     :resheader Content-Type: *application/json*
     """
-    review = get_review_or_404(str(review_id))
+    review = get_review_or_404(review_id)
     if review["is_hidden"]:
         raise NotFound("Review has been hidden.")
-    if review["user_id"] != user.id:
+    if str(review["user_id"]) != user.id:
         raise AccessDenied
     db_review.delete(review_id)
     return jsonify(message='Request processed successfully')
@@ -230,10 +230,10 @@ def review_modify_handler(review_id, user):
         text = Parser.string('json', 'text', min=REVIEW_MIN_LENGTH, max=REVIEW_MAX_LENGTH)
         return text
 
-    review = get_review_or_404(str(review_id))
+    review = get_review_or_404(review_id)
     if review["is_hidden"]:
         raise NotFound("Review has been hidden.")
-    if review["user_id"] != user.id:
+    if str(review["user_id"]) != user.id:
         raise AccessDenied
     text = fetch_params()
     db_review.update(
@@ -242,7 +242,7 @@ def review_modify_handler(review_id, user):
         text=text,
     )
     return jsonify(message='Request processed successfully',
-                   review=dict(id=review.id))
+                   review=dict(id=review["id"]))
 
 
 @review_bp.route('/', methods=['GET'])
@@ -381,7 +381,7 @@ def review_post_handler(user):
         language = Parser.string('json', 'language', min=2, max=3, optional=True) or 'en'
         if language and language not in supported_languages:
             raise InvalidRequest(desc='Unsupported language')
-        if Review.query.filter_by(user=user, entity_id=entity_id).count():
+        if db_review.list_reviews(user_id=user.id, entity_id=entity_id)[1]:
             raise InvalidRequest(desc='You have already published a review for this album')
         return entity_id, entity_type, text, license_choice, language, is_draft
 
@@ -463,7 +463,7 @@ def review_vote_entity_handler(review_id, user):
 
     :resheader Content-Type: *application/json*
     """
-    review = get_review_or_404(str(review_id))
+    review = get_review_or_404(review_id)
     if review["is_hidden"]:
         raise NotFound("Review has been hidden.")
     try:
@@ -513,18 +513,18 @@ def review_vote_put_handler(review_id, user):
         vote = Parser.bool('json', 'vote')
         return vote
 
-    review = get_review_or_404(str(review_id))
+    review = get_review_or_404(review_id)
     if review["is_hidden"]:
         raise NotFound("Review has been hidden.")
     vote = fetch_params()
-    if review["user_id"] == user.id:
+    if str(review["user_id"]) == user.id:
         raise InvalidRequest(desc='You cannot rate your own review.')
     if user.is_vote_limit_exceeded is True and db_users.has_voted(user_id, review_id) is False:
         raise LimitExceeded('You have exceeded your limit of votes per day.')
 
     db_vote.submit(
         user_id=user.id,
-        revision_id=review.last_revision.id,
+        revision_id=review["last_revision"]["id"],
         vote=vote,  # overwrites an existing vote, if needed
     )
 
@@ -557,7 +557,7 @@ def review_vote_delete_handler(review_id, user):
 
     :resheader Content-Type: *application/json*
     """
-    review = get_review_or_404(str(review_id))
+    review = get_review_or_404(review_id)
     if review["is_hidden"]:
         raise NotFound("Review has been hidden.")
     try:
