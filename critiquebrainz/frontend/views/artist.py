@@ -15,7 +15,7 @@ def entity(mbid):
     Displays release groups (split up into several sections depending on their
     type), artist information (type, members/member of, external links).
     """
-    artist = musicbrainz.get_artist_by_id(mbid)
+    artist = musicbrainz.ws.get_artist_by_id(mbid)
     if not artist:
         raise NotFound(gettext("Sorry, we couldn't find an artist with that MusicBrainz ID."))
 
@@ -31,7 +31,7 @@ def entity(mbid):
         return redirect(url_for('.reviews'))
     limit = 20
     offset = (page - 1) * limit
-    count, release_groups = musicbrainz.browse_release_groups(artist_id=mbid, release_types=[release_type],
+    count, release_groups = musicbrainz.ws.browse_release_groups(artist_id=mbid, release_types=[release_type],
                                                               limit=limit, offset=offset)
     for release_group in release_groups:
         # TODO(roman): Count reviews instead of fetching them.

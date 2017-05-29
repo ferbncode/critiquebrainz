@@ -11,7 +11,7 @@ place_bp = Blueprint('place', __name__)
 @place_bp.route('/<uuid:id>')
 def entity(id):
     id = str(id)
-    place = musicbrainz.get_place_by_id(id)
+    place = musicbrainz.ws.get_place_by_id(id)
     if not place:
         raise NotFound(gettext("Sorry, we couldn't find a place with that MusicBrainz ID."))
 

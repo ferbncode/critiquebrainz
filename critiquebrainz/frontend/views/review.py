@@ -52,7 +52,7 @@ def browse():
 
     # Loading info about entities for reviews
     entities = [(review["entity_id"], review["entity_type"]) for review in reviews]
-    entities_info = musicbrainz.get_multiple_entities(entities)
+    entities_info = musicbrainz.ws.get_multiple_entities(entities)
 
     return render_template('review/browse.html', reviews=reviews, entities=entities_info,
                            page=page, limit=limit, count=count, entity_type=entity_type)
@@ -212,7 +212,7 @@ def create():
             flash.success(gettext("Review has been published!"))
         return redirect(url_for('.entity', id=review['id']))
 
-    entity = musicbrainz.get_entity_by_id(entity_id, entity_type)
+    entity = musicbrainz.ws.get_entity_by_id(entity_id, entity_type)
     if not entity:
         flash.error(gettext("You can only write a review for an entity that exists on MusicBrainz!"))
         return redirect(url_for('search.selector', next=url_for('.create')))

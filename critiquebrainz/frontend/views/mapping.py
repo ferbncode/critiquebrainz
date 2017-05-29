@@ -34,7 +34,7 @@ def spotify_list(release_group_id):
         spotify_albums = spotify_api.get_multiple_albums(spotify_ids)
     else:
         spotify_albums = []
-    release_group = musicbrainz.get_release_group_by_id(release_group_id)
+    release_group = musicbrainz.ws.get_release_group_by_id(release_group_id)
     if not release_group:
         raise NotFound("Can't find release group with a specified ID.")
     return render_template('mapping/list.html', spotify_albums=spotify_albums,
@@ -47,7 +47,7 @@ def spotify():
     if not release_group_id:
         return redirect(url_for('frontend.index'))
 
-    release_group = musicbrainz.get_release_group_by_id(release_group_id)
+    release_group = musicbrainz.ws.get_release_group_by_id(release_group_id)
     if not release_group:
         flash.error(gettext("Only existing release groups can be mapped to Spotify!"))
         return redirect(url_for('search.index'))
@@ -80,7 +80,7 @@ def spotify_confirm():
     release_group_id = request.args.get('release_group_id')
     if not release_group_id:
         raise BadRequest("Didn't provide `release_group_id`!")
-    release_group = musicbrainz.get_release_group_by_id(release_group_id)
+    release_group = musicbrainz.ws.get_release_group_by_id(release_group_id)
     if not release_group:
         flash.error(gettext("Only existing release groups can be mapped to Spotify!"))
         return redirect(url_for('search.index'))
@@ -121,7 +121,7 @@ def spotify_report():
     spotify_uri = "spotify:album:" + spotify_id
 
     # Checking if release group exists
-    release_group = musicbrainz.get_release_group_by_id(release_group_id)
+    release_group = musicbrainz.ws.get_release_group_by_id(release_group_id)
     if not release_group:
         flash.error(gettext("Can't find release group with that ID!"))
         return redirect(url_for('.spotify_list', release_group_id=release_group_id))

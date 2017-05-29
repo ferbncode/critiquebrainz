@@ -3,8 +3,8 @@ import re
 
 
 def get_url(mbid):
-    all_url_rels = musicbrainz.get_url_rels_from_releases(
-        musicbrainz.browse_releases(release_group=mbid, includes=['url-rels']) or []
+    all_url_rels = musicbrainz.ws.get_url_rels_from_releases(
+        musicbrainz.ws.browse_releases(release_group=mbid, includes=['url-rels']) or []
     )
     for url_rel in all_url_rels:
         if url_rel['type-id'] == '08445ccf-7b99-4438-9f9a-fb9ac18099ee':  # "streaming music"

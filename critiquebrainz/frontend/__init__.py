@@ -83,12 +83,10 @@ def create_app(debug=None, config_path=None):
     # APIs
     from critiquebrainz.frontend.external import mbspotify
     mbspotify.init(app.config['MBSPOTIFY_BASE_URI'], app.config['MBSPOTIFY_ACCESS_KEY'])
+
+    # MusicBrainz
     from critiquebrainz.frontend.external import musicbrainz
-    musicbrainz.init(
-        app_name=app.config['MUSICBRAINZ_USERAGENT'] or "CritiqueBrainz Custom",
-        app_version="1.0",
-        hostname=app.config['MUSICBRAINZ_HOSTNAME'] or "musicbrainz.org",
-    )
+    musicbrainz.init(app)
 
     # Template utilities
     app.jinja_env.add_extension('jinja2.ext.do')
@@ -97,7 +95,7 @@ def create_app(debug=None, config_path=None):
     app.jinja_env.filters['datetime'] = reformat_datetime
     app.jinja_env.filters['track_length'] = track_length
     app.jinja_env.filters['parameterize'] = parameterize
-    app.jinja_env.filters['entity_details'] = musicbrainz.get_entity_by_id
+    app.jinja_env.filters['entity_details'] = musicbrainz.ws.get_entity_by_id
     from flask_babel import Locale, get_locale
     app.jinja_env.filters['language_name'] = lambda language_code: Locale(language_code).get_language_name(get_locale())
     app.context_processor(lambda: dict(get_static_path=static_manager.get_static_path))

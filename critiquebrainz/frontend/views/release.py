@@ -9,7 +9,7 @@ release_bp = Blueprint('release', __name__)
 @release_bp.route('/<uuid:id>')
 def entity(id):
     id = str(id)
-    release_data = musicbrainz.get_release_by_id(id)
+    release_data = musicbrainz.ws.get_release_by_id(id)
     if release_data:
         group_id = release_data['release-group']['id']
         url = '/release-group/' + str(group_id)
