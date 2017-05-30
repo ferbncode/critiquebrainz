@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.pool import NullPool
 
-MB_SCHEMA_VERSION = 1
+SCHEMA_SEQUENCE = 24
 
 engine = None
 

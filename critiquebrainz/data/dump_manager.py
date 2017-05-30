@@ -1,6 +1,7 @@
 from flask import current_app, jsonify
 from flask.json import JSONEncoder
 from critiquebrainz.data.utils import create_path, remove_old_archives, get_columns, slugify, explode_db_uri
+from critiquebrainz.frontend.external import musicbrainz
 from critiquebrainz.data import model
 from critiquebrainz import frontend
 from critiquebrainz.data import db
@@ -305,9 +306,12 @@ def mb_importer_trigger(mb_archive, tempdir):
     # 3. Check if table is already populated
     # 4. Check for md5sums of the dumps.
     # 5. Check for the disk space on host device.
+    print("HOLA")
 
     run_dir = os.getcwd()
     archive_name = os.path.basename(mb_archive)[:-8]
+    validate_tar(mb_archive)
+    print(archive_name)
     db_hostname, db_port, db_name, db_username, db_password = explode_db_uri(current_app.config['MB_DATABASE_URI'])
     with tarfile.open(mb_archive, 'r:bz2') as archive:
         archive.extractall(tempdir)
@@ -459,3 +463,21 @@ class DumpJSONEncoder(JSONEncoder):
         else:
             return list(iterable)
         return JSONEncoder.default(self, obj)
+
+def validate_tar(mb_archive):
+    """Extract just the first 100Kb of the tar file, and validate the SCHEMA_SEQUENCE files."""
+    print("Pre-checking: {archive}".format(archive=mb_archive))
+
+    temp_dir = "./temp"
+    # Extracting just the first 100Kb of the tar file which should contain all
+    # relevant SCHEMA_SEQUENCE and TIMESTAMP files.
+    result = subprocess.call("bunzip2 < {archive} | head -c 102400 | tar -C {temp_dir} -xf- 2>/dev/null".format(archive=mb_archive, temp_dir=temp_dir), shell=True)
+    print(result)
+
+    with open(os.path.join(temp_dir, "SCHEMA_SEQUENCE")) as f:
+        tar_seq = f.read()
+        if musicbrainz.db.SCHEMA_SEQUENCE != tar_seq:
+            raise Exception("Schema Sequence mismatch - codebase is {seq}, {archive} is {tar_seq}"
+                 .format(seq=musicbrainz.db.SCHEMA_SEQUENCE, archive=mb_archive, tar_seq=tar_seq))
+    print("VERIFIED: Going good")
+    shutil.rmtree(temp_dir)
