@@ -28,8 +28,8 @@
 {% endblock %}
 
 {% if place['coordinates'] %}
-  {% set lat = place['coordinates']['latitude'] | float %}
-  {% set long = place['coordinates']['longitude'] | float %}
+  {% set lat = place['coordinates'][0] | float %}
+  {% set long = place['coordinates'][1] | float %}
   {% set sidebar_visible = True %}
 {% endif %}
 
