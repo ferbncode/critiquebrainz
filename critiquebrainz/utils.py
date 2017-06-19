@@ -5,6 +5,7 @@ import difflib
 import urllib.parse
 import string
 import random
+import uuid
 
 tags = {'+': ('<ins>', '</ins>'), '-': ('<del>', '</del>'), ' ': (' ', '')}
 
@@ -100,3 +101,10 @@ def side_by_side_diff(old, new):
     append(prev_start, prev_item + prev_end)
 
     return " ".join(left), " ".join(right)
+
+
+def dict_uuids_to_str(dictionary):
+    for key in dictionary.keys():
+        if isinstance(dictionary[key], uuid.UUID):
+            dictionary[key] = str(dictionary[key])
+    return dictionary
