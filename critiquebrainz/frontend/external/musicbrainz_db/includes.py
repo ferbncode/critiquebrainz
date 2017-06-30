@@ -19,6 +19,10 @@ TAG_INCLUDES = ["tags", "user-tags"]
 RATING_INCLUDES = ["ratings", "user-ratings"]
 VALID_INCLUDES = {
    'place' : ["aliases", "annotation"] + RELATION_INCLUDES + TAG_INCLUDES,
+   'release-group': [
+       "artist", "releases", "discids", "media",
+       "artist-credits", "annotation", "aliases"
+    ] + TAG_INCLUDES + RELATION_INCLUDES + RATING_INCLUDES,
 }
 
 
