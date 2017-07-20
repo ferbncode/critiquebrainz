@@ -36,6 +36,7 @@ services:
       - db_test
       - critiquebrainz_redis
       - musicbrainz_db
+      - musicbrainz_test_db
 
   critiquebrainz_redis:
     image: redis:3.2.1
@@ -49,3 +50,12 @@ services:
       MB_IMPORT_DUMPS: "true"
     ports:
       - "5430:5432"
+
+  musicbrainz_test_db:
+    build:
+      context: ./pg_custom/
+      dockerfile: Dockerfile
+    environment:
+      POSTGRES_USER: musicbrainz
+      POSTGRES_PASSWORD: musicbrainz
+      POSTGRES_DB: musicbrainz_db

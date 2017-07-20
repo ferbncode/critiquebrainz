@@ -16,6 +16,16 @@ services:
     image: redis:3.2.1
     network_mode: bridge
 
+  musicbrainz_test_db:
+    build:
+      context: ./pg_custom/
+      dockerfile: Dockerfile
+    environment:
+      POSTGRES_USER: musicbrainz
+      POSTGRES_PASSWORD: musicbrainz
+      POSTGRES_DB: musicbrainz_db
+    network_mode: bridge
+
   critiquebrainz_test:
     build:
       context: ..
@@ -23,4 +33,5 @@ services:
     links:
       - db_test
       - critiquebrainz_redis
+      - musicbrainz_test_db
     network_mode: bridge
