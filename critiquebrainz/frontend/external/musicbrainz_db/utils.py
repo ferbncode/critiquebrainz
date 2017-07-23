@@ -1,20 +1,10 @@
+import os
 import critiquebrainz.frontend.external.musicbrainz_db as mb
-from sqlalchemy.schema import CreateSchema, DropSchema
-from mbdata import models
 
+ADMIN_SQL_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', '..', '..', '..', 'admin', 'sql')
 
-def create_all():
-    mb.engine.execute(CreateSchema('musicbrainz'))
-    mb.engine.execute(CreateSchema('cover_art_archive'))
-    mb.engine.execute(CreateSchema('wikidocs'))
-    mb.engine.execute(CreateSchema('documentation'))
-    mb.engine.execute(CreateSchema('statistics'))
-    models.Base.metadata.create_all(mb.engine)
+def populate_db():
+    mb.run_sql_script(os.path.join(ADMIN_SQL_DIR, 'create_test_data.sql'))
 
-
-def drop_all():
-    mb.engine.execute(DropSchema('musicbrainz', cascade=True))
-    mb.engine.execute(DropSchema('cover_art_archive', cascade=True))
-    mb.engine.execute(DropSchema('wikidocs', cascade=True))
-    mb.engine.execute(DropSchema('documentation', cascade=True))
-    mb.engine.execute(DropSchema('statistics', cascade=True))
+def remove_test_data():
+    mb.run_sql_script(os.path.join(ADMIN_SQL_DIR, 'delete_test_data.sql'))

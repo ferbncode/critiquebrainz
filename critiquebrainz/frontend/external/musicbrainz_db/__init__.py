@@ -21,3 +21,9 @@ def mb_session():
         yield session
     finally:
         session.close()
+
+def run_sql_script(sql_file_path):
+    with open(sql_file_path) as sql:
+        connection = engine.connect()
+        connection.execute(sql.read())
+        connection.close()

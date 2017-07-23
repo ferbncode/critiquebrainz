@@ -52,10 +52,4 @@ services:
       - "5430:5432"
 
   musicbrainz_test_db:
-    build:
-      context: ./pg_custom/
-      dockerfile: Dockerfile
-    environment:
-      POSTGRES_USER: musicbrainz
-      POSTGRES_PASSWORD: musicbrainz
-      POSTGRES_DB: musicbrainz_db
+    image: metabrainz/musicbrainz-test-database:schema-change-2017-q2

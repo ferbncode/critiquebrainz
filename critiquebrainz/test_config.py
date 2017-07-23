@@ -5,7 +5,7 @@ WTF_CSRF_ENABLED = False
 
 SQLALCHEMY_DATABASE_URI = "postgresql://critiquebrainz:critiquebrainz@db_test:5432/critiquebrainz"
 
-MB_DATABASE_URI = "postgresql://musicbrainz:musicbrainz@musicbrainz_test_db:5432/musicbrainz_db"
+MB_DATABASE_URI = "postgresql://musicbrainz:musicbrainz@musicbrainz_test_db:5432/musicbrainz_test"
 
 # Logging
 LOG_FILE = None
