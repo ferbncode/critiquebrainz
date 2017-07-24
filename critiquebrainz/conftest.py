@@ -15,3 +15,9 @@ def populate_mb_database(request):
     def empty_mb_database():
         remove_test_data()
     request.addfinalizer(empty_mb_database)
+
+
+def pytest_keyboard_interrupt(excinfo):
+    #pylint: disable=unused-argument
+    """Called for keyboard interrupt."""
+    remove_test_data()
