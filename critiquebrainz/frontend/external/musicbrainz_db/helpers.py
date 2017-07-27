@@ -54,3 +54,5 @@ def _relationship_link_helper(relation, query, source_attr, target_attr, target_
     for link in query:
         includes_data[getattr(link, source_id_attr)].setdefault('relationship_objs', {}).\
             setdefault(relation_type, []).append(link)
+        if relation_type == 'artist-rels':
+            print(link)

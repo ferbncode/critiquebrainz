@@ -17,7 +17,12 @@ def to_dict_relationships(data, source_obj, relationship_objs):
         if relation in relationship_objs:
             data[relation] = []
             for obj in relationship_objs[relation]:
-                link_data = {'type': obj.link.link_type.name}
+                link_data = {
+                    'type': obj.link.link_type.name,
+                    'type-id': obj.link.link_type.id,
+                    'begin-year': obj.link.begin_date_year,
+                    'end-year': obj.link.end_date_year,
+                }
                 link_data['direction'] = 'forward' if source_obj.id == obj.entity0_id else 'backward'
                 if obj.link.ended:
                     link_data['ended'] = True
@@ -46,6 +51,9 @@ def to_dict_artists(artist, includes=None):
         'name': artist.name,
         'sort_name': artist.sort_name,
     }
+
+    if 'type' in includes and includes['type']:
+        data['type'] = includes['type'].name
 
     if 'relationship_objs' in includes:
         to_dict_relationships(data, artist, includes['relationship_objs'])
